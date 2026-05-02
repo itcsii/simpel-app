@@ -1,36 +1,99 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-
-  // CONFIG KAMU
-  const firebaseConfig = {
-    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
-    authDomain: "simpel-app-b3d9a.firebaseapp.com",
-    projectId: "simpel-app-b3d9a",
-    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
-    messagingSenderId: "562920025009",
-    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
-    measurementId: "G-NRWP6W84QE"
-  };
-
-  // INIT FIREBASE
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // TEST SIMPAN DATA
-  async function testFirestore() {
-    try {
-      await addDoc(collection(db, "test"), {
-        nama: "test dari simpel-app",
-        waktu: new Date().toISOString()
-      });
-
-      alert("🔥 Firebase & Firestore CONNECTED!");
-    } catch (e) {
-      alert("❌ Error: " + e.message);
-      console.error(e);
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPEL</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 24px;
     }
-  }
 
-  testFirestore();
-</script>
+    .card {
+      max-width: 420px;
+      margin: 80px auto;
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    h1 {
+      color: #14b8a6;
+      margin-bottom: 4px;
+    }
+
+    p {
+      color: #555;
+    }
+
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #eef2f7;
+      color: #333;
+      font-size: 14px;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>SIMPEL</h1>
+    <p>Sistem Informasi Manajemen Pelamar</p>
+    <div id="status">Mengecek koneksi Firebase...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+      authDomain: "simpel-app-b3d9a.firebaseapp.com",
+      projectId: "simpel-app-b3d9a",
+      storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+      messagingSenderId: "562920025009",
+      appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+      measurementId: "G-NRWP6W84QE"
+    };
+
+    const statusBox = document.getElementById("status");
+
+    async function cekFirebase() {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        await addDoc(collection(db, "test_koneksi"), {
+          aplikasi: "SIMPEL",
+          pesan: "Firebase berhasil terhubung",
+          waktu: new Date().toISOString()
+        });
+
+        statusBox.innerHTML = "✅ Firebase & Firestore berhasil terhubung.";
+        statusBox.style.background = "#dcfce7";
+        statusBox.style.color = "#166534";
+      } catch (error) {
+        statusBox.innerHTML = "❌ Gagal konek: " + error.message;
+        statusBox.style.background = "#fee2e2";
+        statusBox.style.color = "#991b1b";
+        console.error(error);
+      }
+    }
+
+    cekFirebase();
+  </script>
+
+</body>
+</html>
