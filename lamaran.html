@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Lamaran Saya - SIMPEL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 18px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #2a9d8f;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    button {
+      background: #2a9d8f;
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 7px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Lamaran Saya</h2>
+
+<a href="dashboard.html?v=uat5">
+  <button>Kembali ke Dashboard</button>
+</a>
+
+<p id="userInfo">Memuat user...</p>
+<div id="list">Memuat data lamaran...</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+  measurementId: "G-NRWP6W84QE"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const userInfo = document.getElementById("userInfo");
+const list = document.getElementById("list");
+
+auth.onAuthStateChanged(async function(user) {
+  if (!user) {
+    alert("Login dulu.");
+    window.location.href = "index.html?v=uat5";
+    return;
+  }
+
+  userInfo.innerText = "Login sebagai: " + user.email;
+
+  const snapshot = await db.collection("lamaran")
+    .where("uid", "==", user.uid)
+    .get();
+
+  if (snapshot.empty) {
+    list.innerHTML = "<p>Belum ada lamaran.</p>";
+    return;
+  }
+
+  let html = "";
+
+  snapshot.forEach(doc => {
+    const data = doc.data();
+
+    html += `
+      <div class="card">
+        <h3>${data.lowongan}</h3>
+        <p>Email: ${data.email}</p>
+        <p>Status: <strong>${data.status}</strong></p>
+        <p>Tahap: <strong>${data.tahap || "-"}</strong></p>
+        <span class="badge">Lamaran terkirim</span>
+      </div>
+    `;
+  });
+
+  list.innerHTML = html;
+});
+</script>
+
+</body>
+</html>
