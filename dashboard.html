@@ -1,87 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard</title>
+  <title>Dashboard SIMPEL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+  <!-- Anti cache -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 
   <style>
-    body { font-family: Arial; background:#f4f6f8; padding:20px; }
-    .card { background:white; padding:15px; margin-bottom:15px; border-radius:10px; }
-    button { padding:10px; background:#26a69a; color:white; border:none; border-radius:6px; }
-    #status { margin-top:10px; }
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+    }
+    button {
+      background: #2a9d8f;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
 <body>
 
 <h2>Dashboard Lowongan</h2>
+<p id="userInfo"></p>
 
 <div class="card">
   <h3>Purchasing</h3>
-  <p>Administrasi vendor</p>
-  <button onclick="apply('purchasing')">Apply</button>
+  <p>Mengelola proses pembelian dan administrasi vendor.</p>
+  <button onclick="applyJob('Purchasing')">Apply</button>
 </div>
 
 <div class="card">
   <h3>QC Line Assembling</h3>
-  <p>Quality control</p>
-  <button onclick="apply('qc')">Apply</button>
+  <p>Melakukan pemeriksaan kualitas pada line assembling.</p>
+  <button onclick="applyJob('QC Line Assembling')">Apply</button>
 </div>
 
 <div class="card">
   <h3>Staff IT</h3>
-  <p>Support IT</p>
-  <button onclick="apply('it')">Apply</button>
+  <p>Mengelola sistem internal perusahaan.</p>
+  <button onclick="applyJob('Staff IT')">Apply</button>
 </div>
 
-<div id="status"></div>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+<script>
+  // CONFIG SUDAH DIPASANG
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+    authDomain: "simpel-app-b3d9a.firebaseapp.com",
+    projectId: "simpel-app-b3d9a",
+    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+    messagingSenderId: "562920025009",
+    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+    measurementId: "G-NRWP6W84QE"
+  };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
-  authDomain: "simpel-app-b3d9a.firebaseapp.com",
-  projectId: "simpel-app-b3d9a",
-  storageBucket: "simpel-app-b3d9a.appspot.com",
-  messagingSenderId: "562920025009",
-  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90"
-};
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById("userInfo").innerText =
+        "Login sebagai: " + user.email;
+    } else {
+      alert("Belum login!");
+      window.location.href = "index.html";
+    }
+  });
 
-const status = document.getElementById("status");
-
-window.apply = async (job) => {
-  try {
-    const user = auth.currentUser;
+  async function applyJob(posisi) {
+    const user = firebase.auth().currentUser;
 
     if (!user) {
-      status.innerText = "❌ Belum login";
+      alert("Harus login dulu");
       return;
     }
 
-    await addDoc(collection(db, "lamaran"), {
-      uid: user.uid,
-      email: user.email,
-      lowongan: job,
-      status: "apply",
-      createdAt: serverTimestamp()
-    });
+    try {
+      await db.collection("lamaran").add({
+        uid: user.uid,
+        email: user.email,
+        lowongan: posisi,
+        status: "melamar",
+        createdAt: new Date()
+      });
 
-    status.innerText = "✅ Lamaran berhasil dikirim";
-  } catch (e) {
-    status.innerText = "❌ " + e.message;
+      alert("Lamaran berhasil dikirim!");
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
   }
-};
 </script>
 
 </body>
