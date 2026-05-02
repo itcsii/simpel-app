@@ -5,10 +5,9 @@
   <title>Dashboard SIMPEL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Anti cache -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 
   <style>
     body {
@@ -16,12 +15,14 @@
       background: #f2f2f2;
       padding: 20px;
     }
+
     .card {
       background: white;
       padding: 15px;
       margin-bottom: 15px;
       border-radius: 10px;
     }
+
     button {
       background: #2a9d8f;
       color: white;
@@ -30,84 +31,140 @@
       border-radius: 6px;
       margin-top: 10px;
     }
+
+    button:disabled {
+      background: #9ca3af;
+    }
+
+    #status {
+      margin-top: 16px;
+      font-weight: bold;
+    }
   </style>
 </head>
 
 <body>
 
 <h2>Dashboard Lowongan</h2>
-<p id="userInfo"></p>
+<p id="userInfo">Memuat user...</p>
 
 <div class="card">
   <h3>Purchasing</h3>
   <p>Mengelola proses pembelian dan administrasi vendor.</p>
-  <button onclick="applyJob('Purchasing')">Apply</button>
+  <button id="btn-purchasing" onclick="applyJob('purchasing', 'Purchasing')">Apply</button>
 </div>
 
 <div class="card">
   <h3>QC Line Assembling</h3>
   <p>Melakukan pemeriksaan kualitas pada line assembling.</p>
-  <button onclick="applyJob('QC Line Assembling')">Apply</button>
+  <button id="btn-qc-line-assembling" onclick="applyJob('qc-line-assembling', 'QC Line Assembling')">Apply</button>
 </div>
 
 <div class="card">
   <h3>Staff IT</h3>
   <p>Mengelola sistem internal perusahaan.</p>
-  <button onclick="applyJob('Staff IT')">Apply</button>
+  <button id="btn-staff-it" onclick="applyJob('staff-it', 'Staff IT')">Apply</button>
 </div>
 
-<!-- Firebase -->
+<div id="status">Siap.</div>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
-  // CONFIG SUDAH DIPASANG
-  const firebaseConfig = {
-    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
-    authDomain: "simpel-app-b3d9a.firebaseapp.com",
-    projectId: "simpel-app-b3d9a",
-    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
-    messagingSenderId: "562920025009",
-    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
-    measurementId: "G-NRWP6W84QE"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+  measurementId: "G-NRWP6W84QE"
+};
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
 
-  firebase.auth().onAuthStateChanged(user => {
-    if (user) {
-      document.getElementById("userInfo").innerText =
-        "Login sebagai: " + user.email;
-    } else {
-      alert("Belum login!");
-      window.location.href = "index.html";
+const auth = firebase.auth();
+const db = firebase.firestore();
+const statusBox = document.getElementById("status");
+
+let currentUser = null;
+
+auth.onAuthStateChanged(async function(user) {
+  if (!user) {
+    alert("Belum login.");
+    window.location.href = "index.html?v=uat4";
+    return;
+  }
+
+  currentUser = user;
+  document.getElementById("userInfo").innerText = "Login sebagai: " + user.email;
+
+  await cekLamaranUser();
+});
+
+async function cekLamaranUser() {
+  const jobs = [
+    { id: "purchasing", buttonId: "btn-purchasing" },
+    { id: "qc-line-assembling", buttonId: "btn-qc-line-assembling" },
+    { id: "staff-it", buttonId: "btn-staff-it" }
+  ];
+
+  for (const job of jobs) {
+    const lamaranId = currentUser.uid + "_" + job.id;
+    const docRef = db.collection("lamaran").doc(lamaranId);
+    const docSnap = await docRef.get();
+
+    if (docSnap.exists) {
+      const btn = document.getElementById(job.buttonId);
+      btn.innerText = "Sudah melamar";
+      btn.disabled = true;
     }
-  });
+  }
+}
 
-  async function applyJob(posisi) {
-    const user = firebase.auth().currentUser;
+async function applyJob(jobId, jobName) {
+  if (!currentUser) {
+    statusBox.innerText = "Belum login.";
+    return;
+  }
 
-    if (!user) {
-      alert("Harus login dulu");
+  const lamaranId = currentUser.uid + "_" + jobId;
+  const docRef = db.collection("lamaran").doc(lamaranId);
+
+  try {
+    statusBox.innerText = "Mengecek lamaran...";
+
+    const docSnap = await docRef.get();
+
+    if (docSnap.exists) {
+      statusBox.innerText = "Kamu sudah melamar posisi " + jobName + ".";
+      const btn = document.getElementById("btn-" + jobId);
+      btn.innerText = "Sudah melamar";
+      btn.disabled = true;
       return;
     }
 
-    try {
-      await db.collection("lamaran").add({
-        uid: user.uid,
-        email: user.email,
-        lowongan: posisi,
-        status: "melamar",
-        createdAt: new Date()
-      });
+    await docRef.set({
+      uid: currentUser.uid,
+      email: currentUser.email,
+      lowonganId: jobId,
+      lowongan: jobName,
+      status: "melamar",
+      createdAt: new Date()
+    });
 
-      alert("Lamaran berhasil dikirim!");
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+    statusBox.innerText = "✅ Lamaran " + jobName + " berhasil dikirim.";
+
+    const btn = document.getElementById("btn-" + jobId);
+    btn.innerText = "Sudah melamar";
+    btn.disabled = true;
+
+  } catch (err) {
+    statusBox.innerText = "Error: " + err.message;
   }
+}
 </script>
 
 </body>
