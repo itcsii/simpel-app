@@ -16,24 +16,34 @@
       padding: 20px;
     }
 
+    h2 {
+      margin-bottom: 10px;
+    }
+
     .card {
       background: white;
-      padding: 15px;
+      padding: 18px;
       margin-bottom: 15px;
-      border-radius: 10px;
+      border-radius: 12px;
     }
 
     button {
       background: #2a9d8f;
       color: white;
       border: none;
-      padding: 10px;
-      border-radius: 6px;
+      padding: 10px 14px;
+      border-radius: 7px;
       margin-top: 10px;
+      font-weight: bold;
     }
 
     button:disabled {
       background: #9ca3af;
+    }
+
+    .top-btn {
+      width: 100%;
+      margin-bottom: 15px;
     }
 
     #status {
@@ -47,6 +57,10 @@
 
 <h2>Dashboard Lowongan</h2>
 <p id="userInfo">Memuat user...</p>
+
+<a href="lamaran.html?v=uat5">
+  <button class="top-btn">Lihat Lamaran Saya</button>
+</a>
 
 <div class="card">
   <h3>Purchasing</h3>
@@ -94,7 +108,7 @@ let currentUser = null;
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Belum login.");
-    window.location.href = "index.html?v=uat4";
+    window.location.href = "index.html?v=uat5";
     return;
   }
 
@@ -105,23 +119,28 @@ auth.onAuthStateChanged(async function(user) {
 });
 
 async function cekLamaranUser() {
-  const jobs = [
-    { id: "purchasing", buttonId: "btn-purchasing" },
-    { id: "qc-line-assembling", buttonId: "btn-qc-line-assembling" },
-    { id: "staff-it", buttonId: "btn-staff-it" }
+  const snapshot = await db.collection("lamaran")
+    .where("uid", "==", currentUser.uid)
+    .get();
+
+  if (!snapshot.empty) {
+    disableSemuaTombol("Sudah melamar");
+    statusBox.innerText = "Kamu sudah memiliki lamaran aktif.";
+  }
+}
+
+function disableSemuaTombol(teks) {
+  const tombol = [
+    "btn-purchasing",
+    "btn-qc-line-assembling",
+    "btn-staff-it"
   ];
 
-  for (const job of jobs) {
-    const lamaranId = currentUser.uid + "_" + job.id;
-    const docRef = db.collection("lamaran").doc(lamaranId);
-    const docSnap = await docRef.get();
-
-    if (docSnap.exists) {
-      const btn = document.getElementById(job.buttonId);
-      btn.innerText = "Sudah melamar";
-      btn.disabled = true;
-    }
-  }
+  tombol.forEach(id => {
+    const btn = document.getElementById(id);
+    btn.innerText = teks;
+    btn.disabled = true;
+  });
 }
 
 async function applyJob(jobId, jobName) {
@@ -130,36 +149,33 @@ async function applyJob(jobId, jobName) {
     return;
   }
 
-  const lamaranId = currentUser.uid + "_" + jobId;
-  const docRef = db.collection("lamaran").doc(lamaranId);
-
   try {
     statusBox.innerText = "Mengecek lamaran...";
 
-    const docSnap = await docRef.get();
+    const cek = await db.collection("lamaran")
+      .where("uid", "==", currentUser.uid)
+      .get();
 
-    if (docSnap.exists) {
-      statusBox.innerText = "Kamu sudah melamar posisi " + jobName + ".";
-      const btn = document.getElementById("btn-" + jobId);
-      btn.innerText = "Sudah melamar";
-      btn.disabled = true;
+    if (!cek.empty) {
+      statusBox.innerText = "Kamu sudah melamar 1 posisi. Tidak bisa melamar lagi.";
+      disableSemuaTombol("Sudah melamar");
       return;
     }
 
-    await docRef.set({
+    const lamaranId = currentUser.uid + "_utama";
+
+    await db.collection("lamaran").doc(lamaranId).set({
       uid: currentUser.uid,
       email: currentUser.email,
       lowonganId: jobId,
       lowongan: jobName,
       status: "melamar",
+      tahap: "menunggu_review_berkas",
       createdAt: new Date()
     });
 
     statusBox.innerText = "✅ Lamaran " + jobName + " berhasil dikirim.";
-
-    const btn = document.getElementById("btn-" + jobId);
-    btn.innerText = "Sudah melamar";
-    btn.disabled = true;
+    disableSemuaTombol("Sudah melamar");
 
   } catch (err) {
     statusBox.innerText = "Error: " + err.message;
