@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin HR - SIMPEL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Anti cache saat UAT -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: white;
+      padding: 18px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 12px;
+      border-radius: 7px;
+      color: white;
+      margin: 4px 2px;
+      font-weight: bold;
+    }
+
+    .btn-lolos {
+      background: #16a34a;
+    }
+
+    .btn-tolak {
+      background: #dc2626;
+    }
+
+    .btn-psikotes {
+      background: #2563eb;
+    }
+
+    .btn-refresh {
+      background: #2a9d8f;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #2a9d8f;
+      color: white;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Admin HR SIMPEL</h2>
+<p>Panel ini untuk melihat lamaran dan mengubah status pelamar.</p>
+
+<button class="btn-refresh" onclick="loadLamaran()">Refresh Data</button>
+
+<div id="status">Memuat data...</div>
+<div id="list"></div>
+
+<!-- Firebase SDK versi 8 agar mudah dipakai di HTML biasa -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+  // ================================
+  // 1. FIREBASE CONFIG
+  // ================================
+  // Config ini menghubungkan admin.html ke project Firebase kamu.
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+    authDomain: "simpel-app-b3d9a.firebaseapp.com",
+    projectId: "simpel-app-b3d9a",
+    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+    messagingSenderId: "562920025009",
+    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+    measurementId: "G-NRWP6W84QE"
+  };
+
+  // ================================
+  // 2. INISIALISASI FIREBASE
+  // ================================
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const list = document.getElementById("list");
+  const statusBox = document.getElementById("status");
+
+  // ================================
+  // 3. LOAD DATA LAMARAN
+  // ================================
+  // Mengambil semua data dari collection "lamaran".
+  async function loadLamaran() {
+    statusBox.innerText = "Memuat lamaran...";
+    list.innerHTML = "";
+
+    try {
+      const snapshot = await db.collection("lamaran").get();
+
+      if (snapshot.empty) {
+        statusBox.innerText = "Belum ada lamaran.";
+        return;
+      }
+
+      statusBox.innerText = "Data lamaran ditemukan: " + snapshot.size;
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+
+        // doc.id diperlukan untuk update status dokumen lamaran tertentu
+        const lamaranId = doc.id;
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+          <h3>${data.lowongan || "-"}</h3>
+          <p><strong>Email:</strong> ${data.email || "-"}</p>
+          <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
+          <p><strong>Status:</strong> <span class="badge">${data.status || "-"}</span></p>
+          <p><strong>Tahap:</strong> ${data.tahap || "-"}</p>
+
+          <button class="btn-lolos" onclick="updateStatus('${lamaranId}', 'aktif', 'lolos_berkas')">
+            Lolos Berkas
+          </button>
+
+          <button class="btn-tolak" onclick="updateStatus('${lamaranId}', 'ditolak', 'tidak_lolos_berkas')">
+            Tolak
+          </button>
+
+          <button class="btn-psikotes" onclick="updateStatus('${lamaranId}', 'aktif', 'psikotes_aktif')">
+            Aktifkan Psikotes
+          </button>
+        `;
+
+        list.appendChild(div);
+      });
+
+    } catch (error) {
+      statusBox.innerText = "Error: " + error.message;
+    }
+  }
+
+  // ================================
+  // 4. UPDATE STATUS LAMARAN
+  // ================================
+  // Fungsi ini dipakai admin untuk mengubah status/tahap pelamar.
+  async function updateStatus(lamaranId, statusBaru, tahapBaru) {
+    try {
+      await db.collection("lamaran").doc(lamaranId).update({
+        status: statusBaru,
+        tahap: tahapBaru,
+        updatedAt: new Date()
+      });
+
+      alert("Status berhasil diubah.");
+      loadLamaran();
+
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  }
+
+  // ================================
+  // 5. AUTO LOAD SAAT HALAMAN DIBUKA
+  // ================================
+  loadLamaran();
+</script>
+
+</body>
+</html>
