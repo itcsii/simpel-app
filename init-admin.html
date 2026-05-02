@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Init Admin SIMPEL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body{font-family:Arial;background:#f2f2f2;padding:20px}
+    .card{background:white;padding:20px;border-radius:12px;max-width:430px;margin:40px auto}
+    button{width:100%;padding:14px;border:0;border-radius:8px;background:#2a9d8f;color:white;font-weight:bold}
+    #status{margin-top:15px}
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Init Admin SIMPEL</h2>
+  <p>Login dulu dengan akun yang akan dijadikan admin, lalu klik tombol ini.</p>
+
+  <button onclick="jadikanAdmin()">Jadikan Akun Ini Admin</button>
+
+  <div id="status">Memeriksa login...</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+  measurementId: "G-NRWP6W84QE"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const statusBox = document.getElementById("status");
+
+let currentUser = null;
+
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    statusBox.innerText = "Belum login. Login dulu di index.html.";
+    return;
+  }
+
+  currentUser = user;
+  statusBox.innerText = "Login sebagai: " + user.email;
+});
+
+async function jadikanAdmin() {
+  if (!currentUser) {
+    statusBox.innerText = "Belum login. Login dulu di index.html.";
+    return;
+  }
+
+  try {
+    statusBox.innerText = "Membuat role admin...";
+
+    /*
+      Collection users akan otomatis dibuat jika belum ada.
+      Document ID = UID user login.
+    */
+    await db.collection("users").doc(currentUser.uid).set({
+      uid: currentUser.uid,
+      email: currentUser.email,
+      nama: "Admin HR",
+      role: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    statusBox.innerText = "Membuat audit log awal...";
+
+    /*
+      Collection audit_logs juga otomatis dibuat jika belum ada.
+      Ini hanya log awal sebagai bukti init berhasil.
+    */
+    await db.collection("audit_logs").add({
+      actorUid: currentUser.uid,
+      actorEmail: currentUser.email,
+      actorRole: "admin",
+      action: "INIT_ADMIN_ROLE",
+      targetCollection: "users",
+      targetId: currentUser.uid,
+      description: "Akun ini dijadikan admin melalui init-admin.html",
+      createdAt: new Date()
+    });
+
+    statusBox.innerText = "✅ Admin berhasil dibuat dan audit_logs sudah muncul.";
+
+  } catch (error) {
+    statusBox.innerText = "❌ Error: " + error.message;
+  }
+}
+</script>
+
+</body>
+</html>
