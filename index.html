@@ -5,65 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SIMPEL</title>
 
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <style>
-body {
-  font-family: Arial;
-  background:#f4f6f8;
-  padding:20px;
-}
-
-.card {
-  max-width:400px;
-  margin:auto;
-  background:white;
-  padding:20px;
-  border-radius:10px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.1);
-  text-align:center;
-}
-
-input {
-  width:100%;
-  padding:12px;
-  margin:6px 0;
-  border:1px solid #ccc;
-  border-radius:6px;
-}
-
-button {
-  width:100%;
-  padding:12px;
-  margin:6px 0;
-  border:none;
-  border-radius:6px;
-  background:#26a69a;
-  color:white;
-  font-weight:bold;
-}
-
-#status {
-  margin-top:10px;
-}
+body{font-family:Arial;background:#f4f6f8;padding:20px}
+.card{max-width:420px;margin:40px auto;background:white;padding:22px;border-radius:14px;box-shadow:0 3px 12px #ddd;text-align:center}
+input{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:8px;font-size:16px}
+button{width:100%;padding:14px;margin:8px 0;border:0;border-radius:8px;background:#26a69a;color:white;font-weight:bold;font-size:16px}
+#status{margin-top:14px;font-size:15px}
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>SIMPEL</h2>
+  <h1>SIMPEL</h1>
 
-  <input id="nama" placeholder="Nama">
-  <input id="nik" placeholder="NIK">
+  <input id="nama" placeholder="Nama Lengkap">
+  <input id="nik" placeholder="NIK 16 digit">
   <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <input id="password" type="password" placeholder="Password minimal 6 karakter">
 
-  <button onclick="daftar()">Daftar</button>
-  <button onclick="login()">Login</button>
+  <button id="btnDaftar">Daftar</button>
+  <button id="btnLogin">Login</button>
 
-  <div id="status">⏳ Mengecek koneksi Firebase...</div>
+  <div id="status">Memuat aplikasi...</div>
 </div>
 
-<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
@@ -71,11 +41,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-
 import {
   getFirestore,
+  collection,
   addDoc,
-  collection
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -92,34 +62,68 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const status = document.getElementById("status");
+const btnDaftar = document.getElementById("btnDaftar");
+const btnLogin = document.getElementById("btnLogin");
 
-status.innerText = "✅ Firebase siap";
+status.innerText = "Firebase siap. Silakan daftar atau login.";
 
-window.daftar = async () => {
-  const nama = document.getElementById("nama").value;
-  const nik = document.getElementById("nik").value;
-  const email = document.getElementById("email").value;
+btnDaftar.addEventListener("click", async () => {
+  const nama = document.getElementById("nama").value.trim();
+  const nik = document.getElementById("nik").value.trim();
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
   if (!nama || !nik || !email || !password) {
-    status.innerText = "❌ Semua field wajib diisi";
+    status.innerText = "Semua field wajib diisi.";
+    return;
+  }
+
+  if (nik.length !== 16) {
+    status.innerText = "NIK harus 16 digit.";
     return;
   }
 
   try {
-    // auth
-    const user = await createUserWithEmailAndPassword(auth, email, password);
+    status.innerText = "Mendaftarkan akun...";
 
-    // firestore
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+
     await addDoc(collection(db, "pelamar"), {
-      nama,
-      nik,
-      email,
-      uid: user.user.uid,
-      createdAt: new Date()
+      uid: result.user.uid,
+      nama: nama,
+      nik: nik,
+      email: email,
+      status: "terdaftar",
+      createdAt: serverTimestamp()
     });
 
-    status.innerText = "✅ Daftar berhasil & data tersimpan";
+    status.innerText = "Daftar berhasil & data tersimpan.";
   } catch (e) {
-    status.innerText = "❌ " + e.message;
+    status.innerText = "Error: " + e.message;
   }
+});
+
+btnLogin.addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    status.innerText = "Email dan password wajib diisi.";
+    return;
+  }
+
+  try {
+    status.innerText = "Login diproses...";
+
+    await signInWithEmailAndPassword(auth, email, password);
+
+    status.innerText = "Login berhasil. Membuka dashboard...";
+    window.location.href = "dashboard.html?v=uat2";
+  } catch (e) {
+    status.innerText = "Error: " + e.message;
+  }
+});
+</script>
+
+</body>
+</html>
