@@ -1,10 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>SIMPEL</title>
-</head>
-<body>
-  <h1>SIMPEL</h1>
-  <p>Sistem Informasi Manajemen Pelamar</p>
-</body>
-</html>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+  // CONFIG KAMU
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+    authDomain: "simpel-app-b3d9a.firebaseapp.com",
+    projectId: "simpel-app-b3d9a",
+    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+    messagingSenderId: "562920025009",
+    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+    measurementId: "G-NRWP6W84QE"
+  };
+
+  // INIT FIREBASE
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // TEST SIMPAN DATA
+  async function testFirestore() {
+    try {
+      await addDoc(collection(db, "test"), {
+        nama: "test dari simpel-app",
+        waktu: new Date().toISOString()
+      });
+
+      alert("🔥 Firebase & Firestore CONNECTED!");
+    } catch (e) {
+      alert("❌ Error: " + e.message);
+      console.error(e);
+    }
+  }
+
+  testFirestore();
+</script>
