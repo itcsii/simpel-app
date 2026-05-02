@@ -5,95 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIMPEL</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 24px;
-    }
-
-    .card {
-      max-width: 420px;
-      margin: 80px auto;
-      background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      text-align: center;
-    }
-
-    h1 {
-      color: #14b8a6;
-      margin-bottom: 4px;
-    }
-
-    p {
-      color: #555;
-    }
-
-    #status {
-      margin-top: 20px;
-      padding: 12px;
-      border-radius: 10px;
-      background: #eef2f7;
-      color: #333;
-      font-size: 14px;
-      word-break: break-word;
-    }
+    body { font-family: Arial; background:#f4f6f8; padding:20px; }
+    .card { max-width:400px; margin:60px auto; background:white; padding:20px; border-radius:12px; text-align:center; }
+    input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #ccc; }
+    button { padding:10px; margin:5px; border:none; border-radius:8px; background:#14b8a6; color:white; }
+    #status { margin-top:10px; font-size:14px; }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h1>SIMPEL</h1>
-    <p>Sistem Informasi Manajemen Pelamar</p>
-    <div id="status">Mengecek koneksi Firebase...</div>
-  </div>
+<div class="card">
+  <h2>SIMPEL</h2>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-    import {
-      getFirestore,
-      collection,
-      addDoc
-    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
-      authDomain: "simpel-app-b3d9a.firebaseapp.com",
-      projectId: "simpel-app-b3d9a",
-      storageBucket: "simpel-app-b3d9a.firebasestorage.app",
-      messagingSenderId: "562920025009",
-      appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
-      measurementId: "G-NRWP6W84QE"
-    };
+  <button onclick="register()">Daftar</button>
+  <button onclick="login()">Login</button>
 
-    const statusBox = document.getElementById("status");
+  <div id="status">Siap...</div>
+</div>
 
-    async function cekFirebase() {
-      try {
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
-        await addDoc(collection(db, "test_koneksi"), {
-          aplikasi: "SIMPEL",
-          pesan: "Firebase berhasil terhubung",
-          waktu: new Date().toISOString()
-        });
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90"
+};
 
-        statusBox.innerHTML = "✅ Firebase & Firestore berhasil terhubung.";
-        statusBox.style.background = "#dcfce7";
-        statusBox.style.color = "#166534";
-      } catch (error) {
-        statusBox.innerHTML = "❌ Gagal konek: " + error.message;
-        statusBox.style.background = "#fee2e2";
-        statusBox.style.color = "#991b1b";
-        console.error(error);
-      }
-    }
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-    cekFirebase();
-  </script>
+const status = document.getElementById("status");
+
+window.register = async () => {
+  try {
+    await createUserWithEmailAndPassword(auth, email.value, password.value);
+    status.innerText = "✅ Daftar berhasil";
+  } catch (e) {
+    status.innerText = "❌ " + e.message;
+  }
+};
+
+window.login = async () => {
+  try {
+    await signInWithEmailAndPassword(auth, email.value, password.value);
+    status.innerText = "✅ Login berhasil";
+  } catch (e) {
+    status.innerText = "❌ " + e.message;
+  }
+};
+</script>
 
 </body>
 </html>
