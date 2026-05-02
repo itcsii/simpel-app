@@ -1,26 +1,44 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIMPEL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial; background:#f4f6f8; padding:20px; }
-    .card { max-width:400px; margin:60px auto; background:white; padding:20px; border-radius:12px; text-align:center; }
-    input { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #ccc; }
-    button { padding:10px; margin:5px; border:none; border-radius:8px; background:#14b8a6; color:white; }
+    .card {
+      max-width:400px; margin:auto;
+      background:white; padding:20px;
+      border-radius:10px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);
+      text-align:center;
+    }
+    input {
+      width:100%; padding:10px;
+      margin:5px 0;
+      border:1px solid #ccc;
+      border-radius:6px;
+    }
+    button {
+      padding:10px; margin:5px;
+      border:none; border-radius:6px;
+      background:#14b8a6; color:white;
+      width:48%;
+    }
     #status { margin-top:10px; font-size:14px; }
   </style>
 </head>
+
 <body>
 
 <div class="card">
   <h2>SIMPEL</h2>
 
+  <input id="nama" placeholder="Nama">
+  <input id="nik" placeholder="NIK">
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
 
-  <button onclick="register()">Daftar</button>
+  <button onclick="daftar()">Daftar</button>
   <button onclick="login()">Login</button>
 
   <div id="status">Siap...</div>
@@ -28,7 +46,17 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  addDoc
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
@@ -41,13 +69,29 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 const status = document.getElementById("status");
 
-window.register = async () => {
+window.daftar = async () => {
   try {
-    await createUserWithEmailAndPassword(auth, email.value, password.value);
-    status.innerText = "✅ Daftar berhasil";
+    // register auth
+    await createUserWithEmailAndPassword(
+      auth,
+      email.value,
+      password.value
+    );
+
+    // simpan ke firestore
+    await addDoc(collection(db, "pelamar"), {
+      nama: nama.value,
+      nik: nik.value,
+      email: email.value,
+      created_at: new Date()
+    });
+
+    status.innerText = "✅ Daftar berhasil & data tersimpan";
+
   } catch (e) {
     status.innerText = "❌ " + e.message;
   }
@@ -55,7 +99,11 @@ window.register = async () => {
 
 window.login = async () => {
   try {
-    await signInWithEmailAndPassword(auth, email.value, password.value);
+    await signInWithEmailAndPassword(
+      auth,
+      email.value,
+      password.value
+    );
     status.innerText = "✅ Login berhasil";
   } catch (e) {
     status.innerText = "❌ " + e.message;
