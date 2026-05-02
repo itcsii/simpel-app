@@ -5,7 +5,7 @@
   <title>Admin HR - SIMPEL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Anti cache saat UAT -->
+  <!-- Anti cache untuk UAT -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -15,10 +15,6 @@
       font-family: Arial;
       background: #f2f2f2;
       padding: 20px;
-    }
-
-    h2 {
-      margin-bottom: 10px;
     }
 
     .card {
@@ -37,21 +33,11 @@
       font-weight: bold;
     }
 
-    .btn-lolos {
-      background: #16a34a;
-    }
-
-    .btn-tolak {
-      background: #dc2626;
-    }
-
-    .btn-psikotes {
-      background: #2563eb;
-    }
-
-    .btn-refresh {
-      background: #2a9d8f;
-    }
+    .btn-lolos { background: #16a34a; }
+    .btn-tolak { background: #dc2626; }
+    .btn-psikotes { background: #2563eb; }
+    .btn-refresh { background: #2a9d8f; }
+    .btn-logout { background: #6b7280; }
 
     .badge {
       display: inline-block;
@@ -61,126 +47,251 @@
       border-radius: 6px;
       font-size: 12px;
     }
+
+    .danger {
+      color: #dc2626;
+      font-weight: bold;
+    }
   </style>
 </head>
 
 <body>
 
 <h2>Admin HR SIMPEL</h2>
-<p>Panel ini untuk melihat lamaran dan mengubah status pelamar.</p>
+
+<p id="adminInfo">Memeriksa akses admin...</p>
 
 <button class="btn-refresh" onclick="loadLamaran()">Refresh Data</button>
+<button class="btn-logout" onclick="logout()">Logout</button>
 
 <div id="status">Memuat data...</div>
 <div id="list"></div>
 
-<!-- Firebase SDK versi 8 agar mudah dipakai di HTML biasa -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
-  // ================================
-  // 1. FIREBASE CONFIG
-  // ================================
-  // Config ini menghubungkan admin.html ke project Firebase kamu.
-  const firebaseConfig = {
-    apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
-    authDomain: "simpel-app-b3d9a.firebaseapp.com",
-    projectId: "simpel-app-b3d9a",
-    storageBucket: "simpel-app-b3d9a.firebasestorage.app",
-    messagingSenderId: "562920025009",
-    appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
-    measurementId: "G-NRWP6W84QE"
-  };
+/*
+  ================================
+  1. FIREBASE CONFIG
+  ================================
+  Config ini menghubungkan admin.html ke Firebase project kamu.
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
+  measurementId: "G-NRWP6W84QE"
+};
 
-  // ================================
-  // 2. INISIALISASI FIREBASE
-  // ================================
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+/*
+  ================================
+  2. INISIALISASI FIREBASE
+  ================================
+*/
+firebase.initializeApp(firebaseConfig);
 
-  const list = document.getElementById("list");
-  const statusBox = document.getElementById("status");
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-  // ================================
-  // 3. LOAD DATA LAMARAN
-  // ================================
-  // Mengambil semua data dari collection "lamaran".
-  async function loadLamaran() {
-    statusBox.innerText = "Memuat lamaran...";
-    list.innerHTML = "";
+const adminInfo = document.getElementById("adminInfo");
+const statusBox = document.getElementById("status");
+const list = document.getElementById("list");
 
-    try {
-      const snapshot = await db.collection("lamaran").get();
+let currentAdmin = null;
+let currentAdminRole = null;
 
-      if (snapshot.empty) {
-        statusBox.innerText = "Belum ada lamaran.";
-        return;
-      }
-
-      statusBox.innerText = "Data lamaran ditemukan: " + snapshot.size;
-
-      snapshot.forEach(doc => {
-        const data = doc.data();
-
-        // doc.id diperlukan untuk update status dokumen lamaran tertentu
-        const lamaranId = doc.id;
-
-        const div = document.createElement("div");
-        div.className = "card";
-
-        div.innerHTML = `
-          <h3>${data.lowongan || "-"}</h3>
-          <p><strong>Email:</strong> ${data.email || "-"}</p>
-          <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
-          <p><strong>Status:</strong> <span class="badge">${data.status || "-"}</span></p>
-          <p><strong>Tahap:</strong> ${data.tahap || "-"}</p>
-
-          <button class="btn-lolos" onclick="updateStatus('${lamaranId}', 'aktif', 'lolos_berkas')">
-            Lolos Berkas
-          </button>
-
-          <button class="btn-tolak" onclick="updateStatus('${lamaranId}', 'ditolak', 'tidak_lolos_berkas')">
-            Tolak
-          </button>
-
-          <button class="btn-psikotes" onclick="updateStatus('${lamaranId}', 'aktif', 'psikotes_aktif')">
-            Aktifkan Psikotes
-          </button>
-        `;
-
-        list.appendChild(div);
-      });
-
-    } catch (error) {
-      statusBox.innerText = "Error: " + error.message;
-    }
+/*
+  ================================
+  3. CEK LOGIN DAN ROLE ADMIN
+  ================================
+  Admin harus:
+  - login
+  - punya document users/{uid}
+  - role = admin atau superadmin
+*/
+auth.onAuthStateChanged(async function(user) {
+  if (!user) {
+    alert("Silakan login dulu.");
+    window.location.href = "index.html?v=admin-role1";
+    return;
   }
 
-  // ================================
-  // 4. UPDATE STATUS LAMARAN
-  // ================================
-  // Fungsi ini dipakai admin untuk mengubah status/tahap pelamar.
-  async function updateStatus(lamaranId, statusBaru, tahapBaru) {
-    try {
-      await db.collection("lamaran").doc(lamaranId).update({
-        status: statusBaru,
-        tahap: tahapBaru,
-        updatedAt: new Date()
-      });
+  const userDoc = await db.collection("users").doc(user.uid).get();
 
-      alert("Status berhasil diubah.");
-      loadLamaran();
-
-    } catch (error) {
-      alert("Error: " + error.message);
-    }
+  if (!userDoc.exists) {
+    adminInfo.innerHTML = "<span class='danger'>Akses ditolak. Akun ini belum punya role admin.</span>";
+    statusBox.innerText = "";
+    return;
   }
 
-  // ================================
-  // 5. AUTO LOAD SAAT HALAMAN DIBUKA
-  // ================================
+  const userData = userDoc.data();
+
+  if (userData.role !== "admin" && userData.role !== "superadmin") {
+    adminInfo.innerHTML = "<span class='danger'>Akses ditolak. Role kamu bukan admin.</span>";
+    statusBox.innerText = "";
+    return;
+  }
+
+  currentAdmin = user;
+  currentAdminRole = userData.role;
+
+  adminInfo.innerText =
+    "Login admin: " + user.email + " | Role: " + currentAdminRole;
+
   loadLamaran();
+});
+
+/*
+  ================================
+  4. LOAD DATA LAMARAN
+  ================================
+  Mengambil semua data dari collection lamaran.
+*/
+async function loadLamaran() {
+  if (!currentAdmin) {
+    statusBox.innerText = "Admin belum valid.";
+    return;
+  }
+
+  statusBox.innerText = "Memuat lamaran...";
+  list.innerHTML = "";
+
+  try {
+    const snapshot = await db.collection("lamaran").get();
+
+    if (snapshot.empty) {
+      statusBox.innerText = "Belum ada lamaran.";
+      return;
+    }
+
+    statusBox.innerText = "Total lamaran: " + snapshot.size;
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const lamaranId = doc.id;
+
+      const div = document.createElement("div");
+      div.className = "card";
+
+      div.innerHTML = `
+        <h3>${data.lowongan || "-"}</h3>
+        <p><strong>Email:</strong> ${data.email || "-"}</p>
+        <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
+        <p><strong>Status:</strong> <span class="badge">${data.status || "-"}</span></p>
+        <p><strong>Tahap:</strong> ${data.tahap || "-"}</p>
+        <p><strong>Nilai Psikotes:</strong> ${data.nilaiPsikotes || "-"}</p>
+
+        <button class="btn-lolos" onclick="updateStatus('${lamaranId}', 'aktif', 'lolos_berkas', 'APPROVE_BERKAS')">
+          Lolos Berkas
+        </button>
+
+        <button class="btn-tolak" onclick="updateStatus('${lamaranId}', 'ditolak', 'tidak_lolos_berkas', 'REJECT_BERKAS')">
+          Tolak Berkas
+        </button>
+
+        <button class="btn-psikotes" onclick="updateStatus('${lamaranId}', 'aktif', 'psikotes_aktif', 'AKTIFKAN_PSIKOTES')">
+          Aktifkan Psikotes
+        </button>
+      `;
+
+      list.appendChild(div);
+    });
+
+  } catch (error) {
+    statusBox.innerText = "Error: " + error.message;
+  }
+}
+
+/*
+  ================================
+  5. UPDATE STATUS + AUDIT TRAIL
+  ================================
+  Setiap admin mengubah status, sistem:
+  - baca data lama
+  - update data baru
+  - simpan audit_logs
+*/
+async function updateStatus(lamaranId, statusBaru, tahapBaru, actionName) {
+  if (!currentAdmin) {
+    alert("Admin belum valid.");
+    return;
+  }
+
+  try {
+    const lamaranRef = db.collection("lamaran").doc(lamaranId);
+    const beforeSnap = await lamaranRef.get();
+
+    if (!beforeSnap.exists) {
+      alert("Data lamaran tidak ditemukan.");
+      return;
+    }
+
+    const beforeData = beforeSnap.data();
+
+    await lamaranRef.update({
+      status: statusBaru,
+      tahap: tahapBaru,
+      reviewedByUid: currentAdmin.uid,
+      reviewedByEmail: currentAdmin.email,
+      reviewedAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    /*
+      Audit trail:
+      Catatan historis setiap aksi admin.
+      Ini penting untuk menjawab:
+      - siapa yang approval
+      - kapan dilakukan
+      - dari status apa ke status apa
+    */
+    await db.collection("audit_logs").add({
+      actorUid: currentAdmin.uid,
+      actorEmail: currentAdmin.email,
+      actorRole: currentAdminRole,
+
+      action: actionName,
+
+      targetCollection: "lamaran",
+      targetId: lamaranId,
+
+      pelamarEmail: beforeData.email || "-",
+      lowongan: beforeData.lowongan || "-",
+      periodeId: beforeData.periodeId || "-",
+      periodeNama: beforeData.periodeNama || "-",
+
+      beforeStatus: beforeData.status || "-",
+      beforeTahap: beforeData.tahap || "-",
+
+      afterStatus: statusBaru,
+      afterTahap: tahapBaru,
+
+      createdAt: new Date()
+    });
+
+    alert("Status berhasil diubah dan audit trail tersimpan.");
+    loadLamaran();
+
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+}
+
+/*
+  ================================
+  6. LOGOUT ADMIN
+  ================================
+*/
+function logout() {
+  auth.signOut().then(() => {
+    window.location.href = "index.html?v=admin-role1";
+  });
+}
 </script>
 
 </body>
