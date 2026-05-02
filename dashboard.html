@@ -24,12 +24,12 @@ button:disabled{background:#9ca3af}
 <p id="userInfo">Memuat user...</p>
 <p><strong>Periode:</strong> UAT Mei 2026</p>
 
-<a href="lamaran.html?v=hardlock1">
+<a href="lamaran.html?v=role1">
   <button>Lihat Lamaran Saya</button>
 </a>
 
 <div id="jobs"></div>
-<div id="status">Siap.</div>
+<div id="status">Memeriksa akses...</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -37,14 +37,18 @@ button:disabled{background:#9ca3af}
 
 <script>
 /*
-  PERIODE AKTIF
-  1 user hanya boleh 1 lamaran pada periode ini.
+  ================================
+  1. KONFIGURASI PERIODE
+  ================================
+  Satu user hanya boleh punya satu lamaran pada periode ini.
 */
 const PERIODE_ID = "uat-2026-05";
 const PERIODE_NAMA = "UAT Mei 2026";
 
 /*
-  FIREBASE CONFIG
+  ================================
+  2. FIREBASE CONFIG
+  ================================
 */
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
@@ -56,6 +60,11 @@ const firebaseConfig = {
   measurementId: "G-NRWP6W84QE"
 };
 
+/*
+  ================================
+  3. INISIALISASI FIREBASE
+  ================================
+*/
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
@@ -63,12 +72,16 @@ const db = firebase.firestore();
 
 const jobsBox = document.getElementById("jobs");
 const statusBox = document.getElementById("status");
+const userInfo = document.getElementById("userInfo");
 
 let currentUser = null;
 
 /*
-  DATA LOWONGAN SEMENTARA
-  Nanti bisa diambil otomatis dari collection lowongan.
+  ================================
+  4. DATA LOWONGAN SEMENTARA
+  ================================
+  Untuk UAT masih statis.
+  Nanti bisa ditarik dari collection lowongan.
 */
 const jobs = [
   {
@@ -89,24 +102,54 @@ const jobs = [
 ];
 
 /*
-  CEK LOGIN USER
+  ================================
+  5. CEK LOGIN + ROLE
+  ================================
+  Alur:
+  - Kalau belum login → balik ke index
+  - Kalau role admin/superadmin → pindah ke admin.html
+  - Kalau user biasa → tampil dashboard pelamar
 */
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Belum login.");
-    window.location.href = "index.html?v=hardlock1";
+    window.location.href = "index.html?v=role1";
     return;
   }
 
   currentUser = user;
-  document.getElementById("userInfo").innerText = "Login sebagai: " + user.email;
+  userInfo.innerText = "Login sebagai: " + user.email;
+  statusBox.innerText = "Memeriksa role user...";
 
+  /*
+    Cek apakah user punya role di collection users.
+    Jika document users/{uid} ada dan role admin/superadmin,
+    berarti dia tidak boleh masuk dashboard pelamar.
+  */
+  const roleDoc = await db.collection("users").doc(user.uid).get();
+
+  if (roleDoc.exists) {
+    const roleData = roleDoc.data();
+    const role = roleData.role;
+
+    if (role === "admin" || role === "superadmin") {
+      statusBox.innerText = "Akun admin terdeteksi. Membuka panel admin...";
+      window.location.href = "admin.html?v=role1";
+      return;
+    }
+  }
+
+  /*
+    Jika bukan admin, render dashboard pelamar.
+  */
   renderJobs();
   await cekLamaranPeriode();
 });
 
 /*
-  TAMPILKAN LOWONGAN
+  ================================
+  6. TAMPILKAN LOWONGAN
+  ================================
 */
 function renderJobs() {
   jobsBox.innerHTML = "";
@@ -125,16 +168,19 @@ function renderJobs() {
 
     jobsBox.appendChild(card);
   });
+
+  statusBox.innerText = "Siap.";
 }
 
 /*
-  CEK APAKAH USER SUDAH MELAMAR PADA PERIODE INI
-  Hard lock memakai document ID:
-  UID_PERIODE
+  ================================
+  7. CEK LAMARAN PERIODE
+  ================================
+  Hard lock:
+  Dokumen lamaran memakai ID = UID_PERIODE_ID.
 */
 async function cekLamaranPeriode() {
   const lamaranId = currentUser.uid + "_" + PERIODE_ID;
-
   const docSnap = await db.collection("lamaran").doc(lamaranId).get();
 
   if (docSnap.exists) {
@@ -148,10 +194,11 @@ async function cekLamaranPeriode() {
 }
 
 /*
-  APPLY LOWONGAN
-  Validasi:
-  - user harus login
-  - belum punya dokumen lamaran UID_PERIODE
+  ================================
+  8. APPLY LOWONGAN
+  ================================
+  User hanya bisa apply jika belum punya dokumen:
+  lamaran/{UID_PERIODE_ID}
 */
 async function applyJob(jobId, jobName) {
   if (!currentUser) {
@@ -178,9 +225,8 @@ async function applyJob(jobId, jobName) {
     }
 
     /*
-      INI BAGIAN PALING PENTING:
-      set() ke document ID tetap, bukan add()
-      Jadi user tidak bisa membuat banyak lamaran dalam periode sama.
+      set() memakai ID tetap.
+      Ini mencegah user membuat banyak lamaran dalam periode yang sama.
     */
     await lamaranRef.set({
       uid: currentUser.uid,
@@ -210,7 +256,9 @@ async function applyJob(jobId, jobName) {
 }
 
 /*
-  MATIKAN SEMUA TOMBOL APPLY
+  ================================
+  9. MATIKAN SEMUA TOMBOL APPLY
+  ================================
 */
 function disableApplyButtons() {
   document.querySelectorAll(".apply-btn").forEach(btn => {
