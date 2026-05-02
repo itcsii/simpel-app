@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAT Generator - SIMPEL</title>
+
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+<style>
+body{font-family:Arial;background:#f4f6f8;padding:20px}
+.card{max-width:430px;margin:30px auto;background:white;padding:22px;border-radius:14px;box-shadow:0 3px 12px #ddd}
+h2{text-align:center}
+input{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:8px;font-size:15px}
+button{width:100%;padding:14px;margin:8px 0;border:0;border-radius:8px;background:#26a69a;color:white;font-weight:bold;font-size:15px}
+.secondary{background:#455a64}
+#status{margin-top:14px;text-align:center}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>UAT Generator SIMPEL</h2>
+
+  <input id="nama" placeholder="Nama">
+  <input id="nik" placeholder="NIK">
+  <input id="email" placeholder="Email">
+  <input id="password" placeholder="Password">
+
+  <button onclick="generateData()">Generate Data Random</button>
+  <button onclick="daftarUAT()">Daftar User UAT</button>
+  <button class="secondary" onclick="bukaDashboard()">Buka Dashboard</button>
+
+  <div id="status">Siap generate data UAT.</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
+  messagingSenderId: "562920025009",
+  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const nama = document.getElementById("nama");
+const nik = document.getElementById("nik");
+const email = document.getElementById("email");
+const password = document.getElementById("password");
+const status = document.getElementById("status");
+
+const daftarNama = [
+  "Andi Pratama",
+  "Budi Santoso",
+  "Siti Aminah",
+  "Rina Lestari",
+  "Dedi Kurniawan",
+  "Agus Saputra",
+  "Maya Sari",
+  "Nina Kartika",
+  "Rizky Ramadhan",
+  "Fajar Nugroho"
+];
+
+function angkaRandom(panjang) {
+  let hasil = "";
+  for (let i = 0; i < panjang; i++) {
+    hasil += Math.floor(Math.random() * 10);
+  }
+  return hasil;
+}
+
+window.generateData = function() {
+  const random = Math.floor(Math.random() * 999999);
+  const namaRandom = daftarNama[Math.floor(Math.random() * daftarNama.length)];
+
+  nama.value = namaRandom;
+  nik.value = "3210" + angkaRandom(12);
+  email.value = "uat" + random + "@gmail.com";
+  password.value = "uat12345";
+
+  status.innerText = "✅ Data random siap digunakan.";
+};
+
+window.daftarUAT = async function() {
+  try {
+    if (!nama.value || !nik.value || !email.value || !password.value) {
+      status.innerText = "❌ Generate data dulu.";
+      return;
+    }
+
+    status.innerText = "Mendaftarkan user UAT...";
+
+    const result = await createUserWithEmailAndPassword(
+      auth,
+      email.value,
+      password.value
+    );
+
+    await addDoc(collection(db, "pelamar"), {
+      uid: result.user.uid,
+      nama: nama.value,
+      nik: nik.value,
+      email: email.value,
+      role: "pelamar",
+      status: "terdaftar",
+      sumber: "uat-generator",
+      createdAt: serverTimestamp()
+    });
+
+    status.innerText = "✅ User UAT berhasil dibuat & masuk Firestore.";
+  } catch (e) {
+    status.innerText = "❌ " + e.message;
+  }
+};
+
+window.bukaDashboard = function() {
+  window.location.href = "dashboard.html?v=uat3";
+};
+</script>
+
+</body>
+</html>
