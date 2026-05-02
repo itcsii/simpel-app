@@ -5,6 +5,7 @@
   <title>Lamaran Saya - SIMPEL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Anti cache untuk UAT -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -14,6 +15,8 @@
     .card { background:white; padding:18px; margin-bottom:15px; border-radius:12px; }
     button { background:#2a9d8f; color:white; border:none; padding:10px 14px; border-radius:7px; font-weight:bold; }
     .badge { display:inline-block; background:#2a9d8f; color:white; padding:6px 10px; border-radius:6px; font-size:13px; }
+    .danger { background:#dc2626; }
+    .info { background:#2563eb; }
   </style>
 </head>
 
@@ -21,7 +24,7 @@
 
 <h2>Lamaran Saya</h2>
 
-<a href="dashboard.html?v=periode1">
+<a href="dashboard.html?v=psikotes1">
   <button>Kembali ke Dashboard</button>
 </a>
 
@@ -33,8 +36,20 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
+/*
+  ================================
+  1. KONFIGURASI PERIODE
+  ================================
+  Periode ini harus sama dengan dashboard.html.
+  Tujuannya agar 1 user hanya punya 1 lamaran aktif per periode.
+*/
 const PERIODE_ID = "uat-2026-05";
 
+/*
+  ================================
+  2. FIREBASE CONFIG
+  ================================
+*/
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
   authDomain: "simpel-app-b3d9a.firebaseapp.com",
@@ -45,6 +60,11 @@ const firebaseConfig = {
   measurementId: "G-NRWP6W84QE"
 };
 
+/*
+  ================================
+  3. INISIALISASI FIREBASE
+  ================================
+*/
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
@@ -53,16 +73,29 @@ const db = firebase.firestore();
 const userInfo = document.getElementById("userInfo");
 const list = document.getElementById("list");
 
+/*
+  ================================
+  4. DETEKSI LOGIN USER
+  ================================
+*/
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Login dulu.");
-    window.location.href = "index.html?v=periode1";
+    window.location.href = "index.html?v=psikotes1";
     return;
   }
 
   userInfo.innerText = "Login sebagai: " + user.email;
 
+  /*
+    ID lamaran dibuat dari:
+    UID user + periode aktif
+
+    Contoh:
+    abc123_uat-2026-05
+  */
   const lamaranId = user.uid + "_" + PERIODE_ID;
+
   const docSnap = await db.collection("lamaran").doc(lamaranId).get();
 
   if (!docSnap.exists) {
@@ -72,14 +105,44 @@ auth.onAuthStateChanged(async function(user) {
 
   const data = docSnap.data();
 
+  /*
+    ================================
+    5. TOMBOL PSIKOTES
+    ================================
+    Tombol hanya muncul jika admin sudah mengubah tahap menjadi:
+    psikotes_aktif
+  */
+  let tombolPsikotes = "";
+
+  if (data.tahap === "psikotes_aktif") {
+    tombolPsikotes = `
+      <br><br>
+      <a href="test.html?v=psikotes1">
+        <button class="info">Kerjakan Psikotes</button>
+      </a>
+    `;
+  }
+
+  /*
+    Jika hasil psikotes sudah ada, tampilkan status akhir.
+  */
+  if (data.tahap === "lolos_psikotes") {
+    tombolPsikotes = `<br><br><span class="badge">Lolos Psikotes</span>`;
+  }
+
+  if (data.tahap === "gagal_psikotes") {
+    tombolPsikotes = `<br><br><span class="badge danger">Tidak Lolos Psikotes</span>`;
+  }
+
   list.innerHTML = `
     <div class="card">
       <h3>${data.lowongan}</h3>
-      <p><strong>Periode:</strong> ${data.periodeNama}</p>
+      <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
       <p><strong>Email:</strong> ${data.email}</p>
       <p><strong>Status:</strong> ${data.status}</p>
       <p><strong>Tahap:</strong> ${data.tahap}</p>
-      <span class="badge">Lamaran aktif</span>
+      <span class="badge">Lamaran tercatat</span>
+      ${tombolPsikotes}
     </div>
   `;
 });
