@@ -1,31 +1,50 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>SIMPEL</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial; background:#f4f6f8; padding:20px; }
-    .card {
-      max-width:400px; margin:auto;
-      background:white; padding:20px;
-      border-radius:10px;
-      box-shadow:0 2px 8px rgba(0,0,0,0.1);
-      text-align:center;
-    }
-    input {
-      width:100%; padding:10px;
-      margin:5px 0;
-      border:1px solid #ccc;
-      border-radius:6px;
-    }
-    button {
-      padding:10px; margin:5px;
-      border:none; border-radius:6px;
-      background:#14b8a6; color:white;
-      width:48%;
-    }
-    #status { margin-top:10px; font-size:14px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIMPEL</title>
+
+<style>
+body {
+  font-family: Arial;
+  background:#f4f6f8;
+  padding:20px;
+}
+
+.card {
+  max-width:400px;
+  margin:auto;
+  background:white;
+  padding:20px;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+  text-align:center;
+}
+
+input {
+  width:100%;
+  padding:12px;
+  margin:6px 0;
+  border:1px solid #ccc;
+  border-radius:6px;
+}
+
+button {
+  width:100%;
+  padding:12px;
+  margin:6px 0;
+  border:none;
+  border-radius:6px;
+  background:#26a69a;
+  color:white;
+  font-weight:bold;
+}
+
+#status {
+  margin-top:10px;
+}
+</style>
 </head>
 
 <body>
@@ -41,9 +60,10 @@
   <button onclick="daftar()">Daftar</button>
   <button onclick="login()">Login</button>
 
-  <div id="status">Siap...</div>
+  <div id="status">⏳ Mengecek koneksi Firebase...</div>
 </div>
 
+<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
@@ -54,8 +74,8 @@ import {
 
 import {
   getFirestore,
-  collection,
-  addDoc
+  addDoc,
+  collection
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -73,43 +93,33 @@ const db = getFirestore(app);
 
 const status = document.getElementById("status");
 
-window.daftar = async () => {
-  try {
-    // register auth
-    await createUserWithEmailAndPassword(
-      auth,
-      email.value,
-      password.value
-    );
+status.innerText = "✅ Firebase siap";
 
-    // simpan ke firestore
+window.daftar = async () => {
+  const nama = document.getElementById("nama").value;
+  const nik = document.getElementById("nik").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if (!nama || !nik || !email || !password) {
+    status.innerText = "❌ Semua field wajib diisi";
+    return;
+  }
+
+  try {
+    // auth
+    const user = await createUserWithEmailAndPassword(auth, email, password);
+
+    // firestore
     await addDoc(collection(db, "pelamar"), {
-      nama: nama.value,
-      nik: nik.value,
-      email: email.value,
-      created_at: new Date()
+      nama,
+      nik,
+      email,
+      uid: user.user.uid,
+      createdAt: new Date()
     });
 
     status.innerText = "✅ Daftar berhasil & data tersimpan";
-
   } catch (e) {
     status.innerText = "❌ " + e.message;
   }
-};
-
-window.login = async () => {
-  try {
-    await signInWithEmailAndPassword(
-      auth,
-      email.value,
-      password.value
-    );
-    status.innerText = "✅ Login berhasil";
-  } catch (e) {
-    status.innerText = "❌ " + e.message;
-  }
-};
-</script>
-
-</body>
-</html>
