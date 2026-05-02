@@ -121,7 +121,7 @@ const soal = [
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Login dulu.");
-    window.location.href = "index.html?v=psikotes2";
+    window.location.href = "index.html?v=secure1";
     return;
   }
 
@@ -135,9 +135,11 @@ auth.onAuthStateChanged(async function(user) {
   ================================
   6. CEK AKSES PSIKOTES
   ================================
-  Versi UAT:
-  - Cari lamaran berdasarkan email user
-  - Ini dibuat agar kompatibel dengan data lama yang masih pakai Auto-ID
+  Aturan:
+  - tidak_lolos_berkas = tidak boleh tes
+  - melamar / menunggu_review = belum boleh tes
+  - lolos_berkas / psikotes_aktif = boleh tes
+  - lolos_psikotes / gagal_psikotes = tes sudah selesai
 */
 async function cekAksesPsikotes() {
   const snapshot = await db.collection("lamaran")
@@ -146,7 +148,12 @@ async function cekAksesPsikotes() {
     .get();
 
   if (snapshot.empty) {
-    testArea.innerHTML = "<p class='danger'>Lamaran tidak ditemukan.</p>";
+    testArea.innerHTML = `
+      <p class="danger">Lamaran tidak ditemukan.</p>
+      <a href="lamaran.html?v=secure1">
+        <button>Kembali ke Lamaran Saya</button>
+      </a>
+    `;
     return;
   }
 
@@ -154,12 +161,35 @@ async function cekAksesPsikotes() {
   lamaranId = doc.id;
 
   const data = doc.data();
+  const tahap = data.tahap || "-";
 
-  if (data.tahap !== "psikotes_aktif") {
+  if (tahap === "tidak_lolos_berkas") {
     testArea.innerHTML = `
-      <p class="danger">Psikotes belum aktif atau sudah selesai.</p>
-      <p>Tahap saat ini: ${data.tahap || "-"}</p>
-      <a href="lamaran.html?v=psikotes2">
+      <p class="danger">Anda tidak lolos tahap seleksi berkas.</p>
+      <p>Psikotes tidak tersedia.</p>
+      <a href="lamaran.html?v=secure1">
+        <button>Kembali ke Lamaran Saya</button>
+      </a>
+    `;
+    return;
+  }
+
+  if (tahap === "lolos_psikotes" || tahap === "gagal_psikotes") {
+    testArea.innerHTML = `
+      <p class="success">Psikotes sudah selesai.</p>
+      <p>Nilai: ${data.nilaiPsikotes || "-"}</p>
+      <a href="lamaran.html?v=secure1">
+        <button>Lihat Status Lamaran</button>
+      </a>
+    `;
+    return;
+  }
+
+  if (tahap !== "lolos_berkas" && tahap !== "psikotes_aktif") {
+    testArea.innerHTML = `
+      <p class="danger">Psikotes belum aktif.</p>
+      <p>Tahap saat ini: ${tahap}</p>
+      <a href="lamaran.html?v=secure1">
         <button>Kembali ke Lamaran Saya</button>
       </a>
     `;
@@ -248,10 +278,6 @@ async function submitTes() {
     ? "aktif"
     : "ditolak";
 
-  /*
-    Simpan hasil psikotes.
-    Document ID = lamaranId agar hasil terkait langsung dengan lamaran.
-  */
   await db.collection("psikotes").doc(lamaranId).set({
     uid: currentUser.uid,
     email: currentUser.email,
@@ -263,9 +289,6 @@ async function submitTes() {
     finishedAt: new Date()
   });
 
-  /*
-    Update status lamaran.
-  */
   await db.collection("lamaran").doc(lamaranId).update({
     nilaiPsikotes: nilai,
     tahap: tahapBaru,
@@ -279,12 +302,10 @@ async function submitTes() {
     <p class="${nilai >= NILAI_LOLOS ? "success" : "danger"}">
       ${nilai >= NILAI_LOLOS ? "Lolos Psikotes" : "Tidak Lolos Psikotes"}
     </p>
-    <a href="lamaran.html?v=psikotes2">
+    <a href="lamaran.html?v=secure1">
       <button>Lihat Status Lamaran</button>
     </a>
   `;
-
-  statusBox.innerHTML = "";
 }
 
 /*
