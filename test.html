@@ -27,10 +27,7 @@
 <p id="userInfo">Memuat user...</p>
 <p><strong>Sisa waktu:</strong> <span id="timer">60</span> detik</p>
 
-<div id="testArea" class="card">
-  Memuat soal...
-</div>
-
+<div id="testArea" class="card">Memuat soal...</div>
 <div id="status"></div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -40,7 +37,7 @@
 <script>
 /*
   ================================
-  1. KONFIGURASI PERIODE & TES
+  1. KONFIGURASI TES
   ================================
 */
 const PERIODE_ID = "uat-2026-05";
@@ -85,10 +82,8 @@ let sudahSubmit = false;
 
 /*
   ================================
-  4. BANK SOAL SEDERHANA
+  4. BANK SOAL UAT
   ================================
-  Untuk UAT, soal dibuat sederhana dulu.
-  Nanti bisa diganti menjadi soal psikotes asli.
 */
 const soal = [
   {
@@ -126,14 +121,12 @@ const soal = [
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Login dulu.");
-    window.location.href = "index.html?v=psikotes1";
+    window.location.href = "index.html?v=psikotes2";
     return;
   }
 
   currentUser = user;
   userInfo.innerText = "Login sebagai: " + user.email;
-
-  lamaranId = currentUser.uid + "_" + PERIODE_ID;
 
   await cekAksesPsikotes();
 });
@@ -142,24 +135,31 @@ auth.onAuthStateChanged(async function(user) {
   ================================
   6. CEK AKSES PSIKOTES
   ================================
-  Psikotes hanya boleh dikerjakan jika admin sudah mengaktifkan:
-  tahap = psikotes_aktif
+  Versi UAT:
+  - Cari lamaran berdasarkan email user
+  - Ini dibuat agar kompatibel dengan data lama yang masih pakai Auto-ID
 */
 async function cekAksesPsikotes() {
-  const docSnap = await db.collection("lamaran").doc(lamaranId).get();
+  const snapshot = await db.collection("lamaran")
+    .where("email", "==", currentUser.email)
+    .limit(1)
+    .get();
 
-  if (!docSnap.exists) {
+  if (snapshot.empty) {
     testArea.innerHTML = "<p class='danger'>Lamaran tidak ditemukan.</p>";
     return;
   }
 
-  const data = docSnap.data();
+  const doc = snapshot.docs[0];
+  lamaranId = doc.id;
+
+  const data = doc.data();
 
   if (data.tahap !== "psikotes_aktif") {
     testArea.innerHTML = `
       <p class="danger">Psikotes belum aktif atau sudah selesai.</p>
-      <p>Tahap saat ini: ${data.tahap}</p>
-      <a href="lamaran.html?v=psikotes1">
+      <p>Tahap saat ini: ${data.tahap || "-"}</p>
+      <a href="lamaran.html?v=psikotes2">
         <button>Kembali ke Lamaran Saya</button>
       </a>
     `;
@@ -197,7 +197,6 @@ function renderSoal() {
   });
 
   html += `<button onclick="submitTes()">Submit Psikotes</button>`;
-
   testArea.innerHTML = html;
 }
 
@@ -205,8 +204,6 @@ function renderSoal() {
   ================================
   8. TIMER
   ================================
-  Untuk UAT, timer masih client-side.
-  Nanti production sebaiknya memakai server timestamp.
 */
 function mulaiTimer() {
   timerInterval = setInterval(() => {
@@ -252,8 +249,8 @@ async function submitTes() {
     : "ditolak";
 
   /*
-    Simpan hasil ke collection psikotes.
-    Document ID dibuat sama dengan lamaranId agar 1 user hanya punya 1 hasil per periode.
+    Simpan hasil psikotes.
+    Document ID = lamaranId agar hasil terkait langsung dengan lamaran.
   */
   await db.collection("psikotes").doc(lamaranId).set({
     uid: currentUser.uid,
@@ -267,7 +264,7 @@ async function submitTes() {
   });
 
   /*
-    Update dokumen lamaran agar pelamar bisa melihat hasilnya di lamaran.html.
+    Update status lamaran.
   */
   await db.collection("lamaran").doc(lamaranId).update({
     nilaiPsikotes: nilai,
@@ -282,7 +279,7 @@ async function submitTes() {
     <p class="${nilai >= NILAI_LOLOS ? "success" : "danger"}">
       ${nilai >= NILAI_LOLOS ? "Lolos Psikotes" : "Tidak Lolos Psikotes"}
     </p>
-    <a href="lamaran.html?v=psikotes1">
+    <a href="lamaran.html?v=psikotes2">
       <button>Lihat Status Lamaran</button>
     </a>
   `;
@@ -294,8 +291,6 @@ async function submitTes() {
   ================================
   10. ANTI PINDAH TAB SEDERHANA
   ================================
-  Ini hanya mitigasi ringan untuk UAT.
-  Tidak bisa 100% mencegah cheating.
 */
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && !sudahSubmit) {
