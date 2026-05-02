@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:20px; }
+.card { background:white; padding:16px; margin:10px 0; border-radius:10px; }
+button { padding:8px 12px; background:#14b8a6; color:white; border:none; border-radius:6px; }
+</style>
+</head>
+<body>
+
+<h2>Dashboard Lowongan</h2>
+<div id="list"></div>
+<div id="status"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
+  authDomain: "simpel-app-b3d9a.firebaseapp.com",
+  projectId: "simpel-app-b3d9a",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const list = document.getElementById("list");
+const status = document.getElementById("status");
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    status.innerText = "❌ Belum login";
+    return;
+  }
+
+  status.innerText = "Login sebagai: " + user.email;
+
+  const querySnapshot = await getDocs(collection(db, "lowongan"));
+
+  querySnapshot.forEach((doc) => {
+    const data = doc.data();
+
+    const div = document.createElement("div");
+    div.className = "card";
+
+    div.innerHTML = `
+      <h3>${data.judul}</h3>
+      <p>${data.deskripsi}</p>
+      <button onclick="apply('${doc.id}')">Apply</button>
+    `;
+
+    list.appendChild(div);
+  });
+
+  window.apply = async (id) => {
+    try {
+      await addDoc(collection(db, "lamaran"), {
+        uid: user.uid,
+        email: user.email,
+        lowonganId: id,
+        status: "apply",
+        createdAt: new Date()
+      });
+
+      alert("✅ Berhasil apply");
+    } catch (e) {
+      alert("❌ " + e.message);
+    }
+  };
+});
+</script>
+
+</body>
+</html>
