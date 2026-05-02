@@ -1,71 +1,62 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin HR - SIMPEL</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Admin HR SIMPEL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Anti cache untuk UAT -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
-  <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      padding: 20px;
-    }
-
-    .card {
-      background: white;
-      padding: 18px;
-      margin-bottom: 15px;
-      border-radius: 12px;
-    }
-
-    button {
-      border: none;
-      padding: 10px 12px;
-      border-radius: 7px;
-      color: white;
-      margin: 4px 2px;
-      font-weight: bold;
-    }
-
-    .btn-lolos { background: #16a34a; }
-    .btn-tolak { background: #dc2626; }
-    .btn-psikotes { background: #2563eb; }
-    .btn-refresh { background: #2a9d8f; }
-    .btn-logout { background: #6b7280; }
-
-    .badge {
-      display: inline-block;
-      background: #2a9d8f;
-      color: white;
-      padding: 5px 8px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-
-    .danger {
-      color: #dc2626;
-      font-weight: bold;
-    }
-  </style>
+<style>
+body{font-family:Arial;background:#f2f2f2;padding:20px}
+h2{margin-bottom:6px}
+.card{background:white;padding:16px;margin-bottom:12px;border-radius:12px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.badge{display:inline-block;background:#2a9d8f;color:white;padding:5px 8px;border-radius:6px;font-size:12px}
+button{border:0;border-radius:7px;padding:10px 12px;color:white;font-weight:bold;margin:4px 2px}
+.btn-main{background:#2a9d8f}
+.btn-gray{background:#6b7280}
+.btn-green{background:#16a34a}
+.btn-red{background:#dc2626}
+.btn-blue{background:#2563eb}
+.btn-disabled{background:#9ca3af}
+.detail{display:none;margin-top:12px;border-top:1px solid #ddd;padding-top:10px}
+.pagination{margin-top:18px;display:flex;gap:8px;align-items:center}
+select{padding:10px;border-radius:8px;border:1px solid #ccc;margin:8px 0;width:100%}
+.small{font-size:13px;color:#555}
+</style>
 </head>
 
 <body>
 
 <h2>Admin HR SIMPEL</h2>
-
 <p id="adminInfo">Memeriksa akses admin...</p>
 
-<button class="btn-refresh" onclick="loadLamaran()">Refresh Data</button>
-<button class="btn-logout" onclick="logout()">Logout</button>
+<p><strong>Periode aktif:</strong> UAT Mei 2026</p>
 
-<div id="status">Memuat data...</div>
+<select id="filterTahap" onchange="applyFilter()">
+  <option value="all">Semua tahap</option>
+  <option value="menunggu_review_berkas">Menunggu Review Berkas</option>
+  <option value="lolos_berkas">Lolos Berkas</option>
+  <option value="tidak_lolos_berkas">Tidak Lolos Berkas</option>
+  <option value="psikotes_aktif">Psikotes Aktif</option>
+  <option value="lolos_psikotes">Lolos Psikotes</option>
+  <option value="gagal_psikotes">Gagal Psikotes</option>
+</select>
+
+<button class="btn-main" onclick="loadLamaran()">Refresh Data</button>
+<button class="btn-gray" onclick="logout()">Logout</button>
+
+<p id="status">Memuat data...</p>
 <div id="list"></div>
+
+<div class="pagination">
+  <button class="btn-gray" onclick="prevPage()">Prev</button>
+  <span id="pageInfo">Page 1</span>
+  <button class="btn-gray" onclick="nextPage()">Next</button>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -74,9 +65,28 @@
 <script>
 /*
   ================================
-  1. FIREBASE CONFIG
+  1. KONFIGURASI PERIODE
   ================================
-  Config ini menghubungkan admin.html ke Firebase project kamu.
+  Admin hanya melihat lamaran untuk periode aktif.
+*/
+const PERIODE_ID = "uat-2026-05";
+const PERIODE_NAMA = "UAT Mei 2026";
+
+/*
+  ================================
+  2. KONFIGURASI PAGINATION
+  ================================
+  Karena HP susah scroll panjang, data dibagi per halaman.
+*/
+const PAGE_SIZE = 5;
+let currentPage = 1;
+let allLamaran = [];
+let filteredLamaran = [];
+
+/*
+  ================================
+  3. FIREBASE CONFIG
+  ================================
 */
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
@@ -88,11 +98,6 @@ const firebaseConfig = {
   measurementId: "G-NRWP6W84QE"
 };
 
-/*
-  ================================
-  2. INISIALISASI FIREBASE
-  ================================
-*/
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
@@ -100,31 +105,29 @@ const db = firebase.firestore();
 
 const adminInfo = document.getElementById("adminInfo");
 const statusBox = document.getElementById("status");
-const list = document.getElementById("list");
+const listBox = document.getElementById("list");
+const pageInfo = document.getElementById("pageInfo");
 
 let currentAdmin = null;
 let currentAdminRole = null;
 
 /*
   ================================
-  3. CEK LOGIN DAN ROLE ADMIN
+  4. CEK LOGIN ADMIN
   ================================
-  Admin harus:
-  - login
-  - punya document users/{uid}
-  - role = admin atau superadmin
+  User hanya boleh masuk admin.html jika punya role admin/superadmin.
 */
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Silakan login dulu.");
-    window.location.href = "index.html?v=admin-role1";
+    window.location.href = "index.html?v=admin-clean1";
     return;
   }
 
   const userDoc = await db.collection("users").doc(user.uid).get();
 
   if (!userDoc.exists) {
-    adminInfo.innerHTML = "<span class='danger'>Akses ditolak. Akun ini belum punya role admin.</span>";
+    adminInfo.innerHTML = "Akses ditolak. Akun ini belum punya role admin.";
     statusBox.innerText = "";
     return;
   }
@@ -132,7 +135,7 @@ auth.onAuthStateChanged(async function(user) {
   const userData = userDoc.data();
 
   if (userData.role !== "admin" && userData.role !== "superadmin") {
-    adminInfo.innerHTML = "<span class='danger'>Akses ditolak. Role kamu bukan admin.</span>";
+    adminInfo.innerHTML = "Akses ditolak. Role kamu bukan admin.";
     statusBox.innerText = "";
     return;
   }
@@ -140,17 +143,16 @@ auth.onAuthStateChanged(async function(user) {
   currentAdmin = user;
   currentAdminRole = userData.role;
 
-  adminInfo.innerText =
-    "Login admin: " + user.email + " | Role: " + currentAdminRole;
+  adminInfo.innerText = "Login admin: " + user.email + " | Role: " + currentAdminRole;
 
   loadLamaran();
 });
 
 /*
   ================================
-  4. LOAD DATA LAMARAN
+  5. LOAD LAMARAN PER PERIODE
   ================================
-  Mengambil semua data dari collection lamaran.
+  Hanya ambil data periode aktif agar data lama tidak bercampur.
 */
 async function loadLamaran() {
   if (!currentAdmin) {
@@ -158,49 +160,25 @@ async function loadLamaran() {
     return;
   }
 
-  statusBox.innerText = "Memuat lamaran...";
-  list.innerHTML = "";
+  statusBox.innerText = "Memuat lamaran periode aktif...";
+  listBox.innerHTML = "";
 
   try {
-    const snapshot = await db.collection("lamaran").get();
+    const snapshot = await db.collection("lamaran")
+      .where("periodeId", "==", PERIODE_ID)
+      .get();
 
-    if (snapshot.empty) {
-      statusBox.innerText = "Belum ada lamaran.";
-      return;
-    }
-
-    statusBox.innerText = "Total lamaran: " + snapshot.size;
+    allLamaran = [];
 
     snapshot.forEach(doc => {
-      const data = doc.data();
-      const lamaranId = doc.id;
-
-      const div = document.createElement("div");
-      div.className = "card";
-
-      div.innerHTML = `
-        <h3>${data.lowongan || "-"}</h3>
-        <p><strong>Email:</strong> ${data.email || "-"}</p>
-        <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
-        <p><strong>Status:</strong> <span class="badge">${data.status || "-"}</span></p>
-        <p><strong>Tahap:</strong> ${data.tahap || "-"}</p>
-        <p><strong>Nilai Psikotes:</strong> ${data.nilaiPsikotes || "-"}</p>
-
-        <button class="btn-lolos" onclick="updateStatus('${lamaranId}', 'aktif', 'lolos_berkas', 'APPROVE_BERKAS')">
-          Lolos Berkas
-        </button>
-
-        <button class="btn-tolak" onclick="updateStatus('${lamaranId}', 'ditolak', 'tidak_lolos_berkas', 'REJECT_BERKAS')">
-          Tolak Berkas
-        </button>
-
-        <button class="btn-psikotes" onclick="updateStatus('${lamaranId}', 'aktif', 'psikotes_aktif', 'AKTIFKAN_PSIKOTES')">
-          Aktifkan Psikotes
-        </button>
-      `;
-
-      list.appendChild(div);
+      allLamaran.push({
+        id: doc.id,
+        data: doc.data()
+      });
     });
+
+    currentPage = 1;
+    applyFilter();
 
   } catch (error) {
     statusBox.innerText = "Error: " + error.message;
@@ -209,12 +187,169 @@ async function loadLamaran() {
 
 /*
   ================================
-  5. UPDATE STATUS + AUDIT TRAIL
+  6. FILTER TAHAP
   ================================
-  Setiap admin mengubah status, sistem:
-  - baca data lama
-  - update data baru
-  - simpan audit_logs
+  Admin bisa filter status/tahap tanpa reload Firestore.
+*/
+function applyFilter() {
+  const filter = document.getElementById("filterTahap").value;
+
+  if (filter === "all") {
+    filteredLamaran = allLamaran;
+  } else {
+    filteredLamaran = allLamaran.filter(item => item.data.tahap === filter);
+  }
+
+  currentPage = 1;
+  renderPage();
+}
+
+/*
+  ================================
+  7. RENDER PAGINATION
+  ================================
+  Menampilkan hanya PAGE_SIZE data per halaman.
+*/
+function renderPage() {
+  listBox.innerHTML = "";
+
+  const total = filteredLamaran.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageItems = filteredLamaran.slice(start, end);
+
+  statusBox.innerText = "Total lamaran periode aktif: " + total;
+  pageInfo.innerText = "Page " + currentPage + " / " + totalPages;
+
+  if (pageItems.length === 0) {
+    listBox.innerHTML = "<p>Tidak ada data.</p>";
+    return;
+  }
+
+  pageItems.forEach(item => {
+    renderCard(item.id, item.data);
+  });
+}
+
+function prevPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    renderPage();
+  }
+}
+
+function nextPage() {
+  const totalPages = Math.max(1, Math.ceil(filteredLamaran.length / PAGE_SIZE));
+  if (currentPage < totalPages) {
+    currentPage++;
+    renderPage();
+  }
+}
+
+/*
+  ================================
+  8. RENDER CARD LAMARAN
+  ================================
+  Card dibuat ringkas.
+  Detail dan tombol aksi muncul hanya jika user klik "Detail".
+*/
+function renderCard(lamaranId, data) {
+  const div = document.createElement("div");
+  div.className = "card";
+
+  const detailId = "detail-" + lamaranId.replaceAll("/", "-");
+
+  div.innerHTML = `
+    <div class="row">
+      <div>
+        <h3>${data.lowongan || "-"}</h3>
+        <p class="small">${data.email || "-"}</p>
+      </div>
+      <span class="badge">${data.tahap || "-"}</span>
+    </div>
+
+    <button class="btn-main" onclick="toggleDetail('${detailId}')">Detail</button>
+
+    <div class="detail" id="${detailId}">
+      <p><strong>Periode:</strong> ${data.periodeNama || "-"}</p>
+      <p><strong>Status:</strong> ${data.status || "-"}</p>
+      <p><strong>Tahap:</strong> ${data.tahap || "-"}</p>
+      <p><strong>Nilai Psikotes:</strong> ${data.nilaiPsikotes || "-"}</p>
+      <p><strong>Reviewed By:</strong> ${data.reviewedByEmail || "-"}</p>
+
+      ${renderActionButtons(lamaranId, data)}
+    </div>
+  `;
+
+  listBox.appendChild(div);
+}
+
+/*
+  ================================
+  9. ACCORDION DETAIL
+  ================================
+*/
+function toggleDetail(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === "block" ? "none" : "block";
+}
+
+/*
+  ================================
+  10. LOCK WORKFLOW
+  ================================
+  Tombol admin hanya muncul sesuai tahap yang valid.
+*/
+function renderActionButtons(lamaranId, data) {
+  const tahap = data.tahap || "";
+
+  if (tahap === "menunggu_review_berkas") {
+    return `
+      <button class="btn-green" onclick="updateStatus('${lamaranId}', 'aktif', 'lolos_berkas', 'APPROVE_BERKAS')">
+        Lolos Berkas
+      </button>
+      <button class="btn-red" onclick="updateStatus('${lamaranId}', 'ditolak', 'tidak_lolos_berkas', 'REJECT_BERKAS')">
+        Tolak Berkas
+      </button>
+    `;
+  }
+
+  if (tahap === "lolos_berkas") {
+    return `
+      <button class="btn-blue" onclick="updateStatus('${lamaranId}', 'aktif', 'psikotes_aktif', 'AKTIFKAN_PSIKOTES')">
+        Aktifkan Psikotes
+      </button>
+    `;
+  }
+
+  if (tahap === "psikotes_aktif") {
+    return `<button class="btn-disabled" disabled>Menunggu pelamar mengerjakan psikotes</button>`;
+  }
+
+  if (tahap === "lolos_psikotes") {
+    return `<button class="btn-disabled" disabled>Pelamar lolos psikotes</button>`;
+  }
+
+  if (tahap === "gagal_psikotes") {
+    return `<button class="btn-disabled" disabled>Pelamar gagal psikotes</button>`;
+  }
+
+  if (tahap === "tidak_lolos_berkas") {
+    return `<button class="btn-disabled" disabled>Proses berhenti: tidak lolos berkas</button>`;
+  }
+
+  return `<button class="btn-disabled" disabled>Tahap tidak dikenali</button>`;
+}
+
+/*
+  ================================
+  11. UPDATE STATUS + AUDIT TRAIL
+  ================================
+  Setiap approval disimpan ke audit_logs.
 */
 async function updateStatus(lamaranId, statusBaru, tahapBaru, actionName) {
   if (!currentAdmin) {
@@ -233,6 +368,25 @@ async function updateStatus(lamaranId, statusBaru, tahapBaru, actionName) {
 
     const beforeData = beforeSnap.data();
 
+    /*
+      Validasi workflow sebelum update.
+      Ini mencegah admin klik aksi yang tidak sesuai tahap.
+    */
+    if (actionName === "APPROVE_BERKAS" && beforeData.tahap !== "menunggu_review_berkas") {
+      alert("Aksi tidak valid. Hanya bisa approve dari tahap menunggu_review_berkas.");
+      return;
+    }
+
+    if (actionName === "REJECT_BERKAS" && beforeData.tahap !== "menunggu_review_berkas") {
+      alert("Aksi tidak valid. Hanya bisa reject dari tahap menunggu_review_berkas.");
+      return;
+    }
+
+    if (actionName === "AKTIFKAN_PSIKOTES" && beforeData.tahap !== "lolos_berkas") {
+      alert("Aksi tidak valid. Psikotes hanya bisa diaktifkan setelah lolos berkas.");
+      return;
+    }
+
     await lamaranRef.update({
       status: statusBaru,
       tahap: tahapBaru,
@@ -242,14 +396,6 @@ async function updateStatus(lamaranId, statusBaru, tahapBaru, actionName) {
       updatedAt: new Date()
     });
 
-    /*
-      Audit trail:
-      Catatan historis setiap aksi admin.
-      Ini penting untuk menjawab:
-      - siapa yang approval
-      - kapan dilakukan
-      - dari status apa ke status apa
-    */
     await db.collection("audit_logs").add({
       actorUid: currentAdmin.uid,
       actorEmail: currentAdmin.email,
@@ -284,12 +430,12 @@ async function updateStatus(lamaranId, statusBaru, tahapBaru, actionName) {
 
 /*
   ================================
-  6. LOGOUT ADMIN
+  12. LOGOUT ADMIN
   ================================
 */
 function logout() {
   auth.signOut().then(() => {
-    window.location.href = "index.html?v=admin-role1";
+    window.location.href = "index.html?v=admin-clean1";
   });
 }
 </script>
