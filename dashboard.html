@@ -10,46 +10,11 @@
   <meta http-equiv="Expires" content="0">
 
   <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      padding: 20px;
-    }
-
-    h2 {
-      margin-bottom: 10px;
-    }
-
-    .card {
-      background: white;
-      padding: 18px;
-      margin-bottom: 15px;
-      border-radius: 12px;
-    }
-
-    button {
-      background: #2a9d8f;
-      color: white;
-      border: none;
-      padding: 10px 14px;
-      border-radius: 7px;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-
-    button:disabled {
-      background: #9ca3af;
-    }
-
-    .top-btn {
-      width: 100%;
-      margin-bottom: 15px;
-    }
-
-    #status {
-      margin-top: 16px;
-      font-weight: bold;
-    }
+    body { font-family: Arial; background:#f2f2f2; padding:20px; }
+    .card { background:white; padding:18px; margin-bottom:15px; border-radius:12px; }
+    button { background:#2a9d8f; color:white; border:none; padding:10px 14px; border-radius:7px; font-weight:bold; }
+    button:disabled { background:#9ca3af; }
+    #status { margin-top:16px; font-weight:bold; }
   </style>
 </head>
 
@@ -57,9 +22,10 @@
 
 <h2>Dashboard Lowongan</h2>
 <p id="userInfo">Memuat user...</p>
+<p><strong>Periode:</strong> UAT Mei 2026</p>
 
-<a href="lamaran.html?v=uat5">
-  <button class="top-btn">Lihat Lamaran Saya</button>
+<a href="lamaran.html?v=periode1">
+  <button>Lihat Lamaran Saya</button>
 </a>
 
 <div class="card">
@@ -87,6 +53,9 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
+const PERIODE_ID = "uat-2026-05";
+const PERIODE_NAMA = "UAT Mei 2026";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
   authDomain: "simpel-app-b3d9a.firebaseapp.com",
@@ -108,35 +77,29 @@ let currentUser = null;
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Belum login.");
-    window.location.href = "index.html?v=uat5";
+    window.location.href = "index.html?v=periode1";
     return;
   }
 
   currentUser = user;
   document.getElementById("userInfo").innerText = "Login sebagai: " + user.email;
 
-  await cekLamaranUser();
+  await cekLamaranPeriode();
 });
 
-async function cekLamaranUser() {
-  const snapshot = await db.collection("lamaran")
-    .where("uid", "==", currentUser.uid)
-    .get();
+async function cekLamaranPeriode() {
+  const lamaranId = currentUser.uid + "_" + PERIODE_ID;
+  const docSnap = await db.collection("lamaran").doc(lamaranId).get();
 
-  if (!snapshot.empty) {
+  if (docSnap.exists) {
+    const data = docSnap.data();
     disableSemuaTombol("Sudah melamar");
-    statusBox.innerText = "Kamu sudah memiliki lamaran aktif.";
+    statusBox.innerText = "Kamu sudah melamar " + data.lowongan + " pada periode ini.";
   }
 }
 
 function disableSemuaTombol(teks) {
-  const tombol = [
-    "btn-purchasing",
-    "btn-qc-line-assembling",
-    "btn-staff-it"
-  ];
-
-  tombol.forEach(id => {
+  ["btn-purchasing", "btn-qc-line-assembling", "btn-staff-it"].forEach(id => {
     const btn = document.getElementById(id);
     btn.innerText = teks;
     btn.disabled = true;
@@ -149,27 +112,29 @@ async function applyJob(jobId, jobName) {
     return;
   }
 
+  const lamaranId = currentUser.uid + "_" + PERIODE_ID;
+  const docRef = db.collection("lamaran").doc(lamaranId);
+
   try {
-    statusBox.innerText = "Mengecek lamaran...";
+    statusBox.innerText = "Mengecek lamaran periode aktif...";
 
-    const cek = await db.collection("lamaran")
-      .where("uid", "==", currentUser.uid)
-      .get();
+    const docSnap = await docRef.get();
 
-    if (!cek.empty) {
-      statusBox.innerText = "Kamu sudah melamar 1 posisi. Tidak bisa melamar lagi.";
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      statusBox.innerText = "Kamu sudah melamar " + data.lowongan + " pada periode ini.";
       disableSemuaTombol("Sudah melamar");
       return;
     }
 
-    const lamaranId = currentUser.uid + "_utama";
-
-    await db.collection("lamaran").doc(lamaranId).set({
+    await docRef.set({
       uid: currentUser.uid,
       email: currentUser.email,
+      periodeId: PERIODE_ID,
+      periodeNama: PERIODE_NAMA,
       lowonganId: jobId,
       lowongan: jobName,
-      status: "melamar",
+      status: "aktif",
       tahap: "menunggu_review_berkas",
       createdAt: new Date()
     });
