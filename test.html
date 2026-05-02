@@ -1,323 +1,141 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Psikotes SIMPEL</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Psikotes SIMPEL</title>
 
-  <!-- Anti cache untuk UAT -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
-  <style>
-    body { font-family: Arial; background:#f2f2f2; padding:20px; }
-    .card { background:white; padding:18px; margin-bottom:15px; border-radius:12px; }
-    button { background:#2a9d8f; color:white; border:none; padding:12px 14px; border-radius:7px; font-weight:bold; width:100%; margin-top:10px; }
-    .danger { color:#dc2626; font-weight:bold; }
-    .success { color:#16a34a; font-weight:bold; }
-    .question { margin-bottom:18px; }
-    label { display:block; margin:8px 0; }
-  </style>
+<style>
+body { font-family: Arial; background:#f2f2f2; padding:20px; }
+.card { background:white; padding:20px; border-radius:12px; margin-top:20px; }
+button { width:100%; padding:12px; background:#2a9d8f; color:white; border:0; border-radius:8px; }
+.error { color:red; font-weight:bold; }
+</style>
 </head>
 
 <body>
 
 <h2>Psikotes SIMPEL</h2>
-<p id="userInfo">Memuat user...</p>
-<p><strong>Sisa waktu:</strong> <span id="timer">60</span> detik</p>
 
-<div id="testArea" class="card">Memuat soal...</div>
-<div id="status"></div>
+<p id="userInfo">Memuat...</p>
+<p id="timerBox"></p>
+
+<div class="card" id="content"></div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
-/*
-  ================================
-  1. KONFIGURASI TES
-  ================================
-*/
-const PERIODE_ID = "uat-2026-05";
-const DURASI_DETIK = 60;
-const NILAI_LOLOS = 70;
-
-/*
-  ================================
-  2. FIREBASE CONFIG
-  ================================
-*/
+// CONFIG FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyDnMRf89zxUSz26-ij5V1-LGqjjpWezFJU",
   authDomain: "simpel-app-b3d9a.firebaseapp.com",
   projectId: "simpel-app-b3d9a",
-  storageBucket: "simpel-app-b3d9a.firebasestorage.app",
-  messagingSenderId: "562920025009",
-  appId: "1:562920025009:web:c3cf438ce4fd2e0bffab90",
-  measurementId: "G-NRWP6W84QE"
 };
 
-/*
-  ================================
-  3. INISIALISASI FIREBASE
-  ================================
-*/
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db = firebase.firestore();
 
 const userInfo = document.getElementById("userInfo");
-const testArea = document.getElementById("testArea");
-const statusBox = document.getElementById("status");
-const timerEl = document.getElementById("timer");
+const content = document.getElementById("content");
+const timerBox = document.getElementById("timerBox");
 
-let currentUser = null;
-let lamaranId = null;
-let waktu = DURASI_DETIK;
-let timerInterval = null;
-let sudahSubmit = false;
+const PERIODE_ID = "uat-2026-05";
 
-/*
-  ================================
-  4. BANK SOAL UAT
-  ================================
-*/
-const soal = [
-  {
-    tanya: "1. Jika 2, 4, 6, 8, maka angka berikutnya adalah?",
-    opsi: ["9", "10", "12"],
-    benar: "10"
-  },
-  {
-    tanya: "2. Anton lebih tinggi dari Budi. Budi lebih tinggi dari Candra. Siapa paling tinggi?",
-    opsi: ["Anton", "Budi", "Candra"],
-    benar: "Anton"
-  },
-  {
-    tanya: "3. Jika semua karyawan wajib disiplin, maka sikap yang tepat adalah?",
-    opsi: ["Datang tepat waktu", "Sering terlambat", "Mengabaikan aturan"],
-    benar: "Datang tepat waktu"
-  },
-  {
-    tanya: "4. 5 x 6 = ?",
-    opsi: ["25", "30", "35"],
-    benar: "30"
-  },
-  {
-    tanya: "5. Saat bekerja dalam tim, hal yang penting adalah?",
-    opsi: ["Komunikasi", "Egois", "Diam saja"],
-    benar: "Komunikasi"
-  }
-];
-
-/*
-  ================================
-  5. DETEKSI LOGIN USER
-  ================================
-*/
-auth.onAuthStateChanged(async function(user) {
+// AUTH CHECK
+auth.onAuthStateChanged(async user => {
   if (!user) {
-    alert("Login dulu.");
-    window.location.href = "index.html?v=secure1";
+    alert("Login dulu");
+    location.href = "index.html";
     return;
   }
 
-  currentUser = user;
   userInfo.innerText = "Login sebagai: " + user.email;
 
-  await cekAksesPsikotes();
-});
+  const lamaranId = user.uid + "_" + PERIODE_ID;
+  const doc = await db.collection("lamaran").doc(lamaranId).get();
 
-/*
-  ================================
-  6. CEK AKSES PSIKOTES
-  ================================
-  Aturan:
-  - tidak_lolos_berkas = tidak boleh tes
-  - melamar / menunggu_review = belum boleh tes
-  - lolos_berkas / psikotes_aktif = boleh tes
-  - lolos_psikotes / gagal_psikotes = tes sudah selesai
-*/
-async function cekAksesPsikotes() {
-  const snapshot = await db.collection("lamaran")
-    .where("email", "==", currentUser.email)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    testArea.innerHTML = `
-      <p class="danger">Lamaran tidak ditemukan.</p>
-      <a href="lamaran.html?v=secure1">
-        <button>Kembali ke Lamaran Saya</button>
-      </a>
-    `;
+  if (!doc.exists) {
+    content.innerHTML = "<p class='error'>Lamaran tidak ditemukan.</p>";
     return;
   }
-
-  const doc = snapshot.docs[0];
-  lamaranId = doc.id;
 
   const data = doc.data();
-  const tahap = data.tahap || "-";
 
-  if (tahap === "tidak_lolos_berkas") {
-    testArea.innerHTML = `
-      <p class="danger">Anda tidak lolos tahap seleksi berkas.</p>
-      <p>Psikotes tidak tersedia.</p>
-      <a href="lamaran.html?v=secure1">
-        <button>Kembali ke Lamaran Saya</button>
-      </a>
+  // ❌ BLOCK jika belum lolos
+  if (data.tahap !== "psikotes_aktif") {
+    content.innerHTML = `
+      <p class="error">Psikotes belum aktif atau sudah selesai.</p>
+      <p>Tahap saat ini: ${data.tahap}</p>
+      <button onclick="location.href='lamaran.html'">Kembali</button>
     `;
     return;
   }
 
-  if (tahap === "lolos_psikotes" || tahap === "gagal_psikotes") {
-    testArea.innerHTML = `
-      <p class="success">Psikotes sudah selesai.</p>
-      <p>Nilai: ${data.nilaiPsikotes || "-"}</p>
-      <a href="lamaran.html?v=secure1">
-        <button>Lihat Status Lamaran</button>
-      </a>
-    `;
-    return;
-  }
+  // ✅ HANYA DI SINI TIMER MUNCUL
+  let timeLeft = 60;
+  timerBox.innerText = "Sisa waktu: " + timeLeft + " detik";
 
-  if (tahap !== "lolos_berkas" && tahap !== "psikotes_aktif") {
-    testArea.innerHTML = `
-      <p class="danger">Psikotes belum aktif.</p>
-      <p>Tahap saat ini: ${tahap}</p>
-      <a href="lamaran.html?v=secure1">
-        <button>Kembali ke Lamaran Saya</button>
-      </a>
-    `;
-    return;
-  }
+  const timer = setInterval(() => {
+    timeLeft--;
+    timerBox.innerText = "Sisa waktu: " + timeLeft + " detik";
 
-  renderSoal();
-  mulaiTimer();
-}
-
-/*
-  ================================
-  7. TAMPILKAN SOAL
-  ================================
-*/
-function renderSoal() {
-  let html = "";
-
-  soal.forEach((item, index) => {
-    html += `
-      <div class="question">
-        <p><strong>${item.tanya}</strong></p>
-    `;
-
-    item.opsi.forEach(opsi => {
-      html += `
-        <label>
-          <input type="radio" name="soal${index}" value="${opsi}">
-          ${opsi}
-        </label>
-      `;
-    });
-
-    html += `</div>`;
-  });
-
-  html += `<button onclick="submitTes()">Submit Psikotes</button>`;
-  testArea.innerHTML = html;
-}
-
-/*
-  ================================
-  8. TIMER
-  ================================
-*/
-function mulaiTimer() {
-  timerInterval = setInterval(() => {
-    waktu--;
-    timerEl.innerText = waktu;
-
-    if (waktu <= 0) {
-      clearInterval(timerInterval);
-      submitTes();
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      submitTest(user, data, "gagal_psikotes");
     }
   }, 1000);
-}
 
-/*
-  ================================
-  9. HITUNG NILAI & SIMPAN HASIL
-  ================================
-*/
-async function submitTes() {
-  if (sudahSubmit) return;
-
-  sudahSubmit = true;
-  clearInterval(timerInterval);
-
-  let benar = 0;
-
-  soal.forEach((item, index) => {
-    const jawaban = document.querySelector(`input[name="soal${index}"]:checked`);
-
-    if (jawaban && jawaban.value === item.benar) {
-      benar++;
-    }
-  });
-
-  const nilai = Math.round((benar / soal.length) * 100);
-
-  const tahapBaru = nilai >= NILAI_LOLOS
-    ? "lolos_psikotes"
-    : "gagal_psikotes";
-
-  const statusBaru = nilai >= NILAI_LOLOS
-    ? "aktif"
-    : "ditolak";
-
-  await db.collection("psikotes").doc(lamaranId).set({
-    uid: currentUser.uid,
-    email: currentUser.email,
-    periodeId: PERIODE_ID,
-    nilai: nilai,
-    benar: benar,
-    totalSoal: soal.length,
-    status: nilai >= NILAI_LOLOS ? "lolos" : "gagal",
-    finishedAt: new Date()
-  });
-
-  await db.collection("lamaran").doc(lamaranId).update({
-    nilaiPsikotes: nilai,
-    tahap: tahapBaru,
-    status: statusBaru,
-    updatedAt: new Date()
-  });
-
-  testArea.innerHTML = `
-    <h3>Psikotes selesai</h3>
-    <p>Nilai kamu: <strong>${nilai}</strong></p>
-    <p class="${nilai >= NILAI_LOLOS ? "success" : "danger"}">
-      ${nilai >= NILAI_LOLOS ? "Lolos Psikotes" : "Tidak Lolos Psikotes"}
-    </p>
-    <a href="lamaran.html?v=secure1">
-      <button>Lihat Status Lamaran</button>
-    </a>
+  // TAMPILKAN SOAL
+  content.innerHTML = `
+    <p>Soal: 2 + 2 = ?</p>
+    <input id="jawaban" placeholder="Jawaban">
+    <br><br>
+    <button onclick="kirim('${user.uid}', '${data.email}', '${data.lowongan}', '${data.lowonganId}')">Kirim</button>
   `;
+});
+
+// SUBMIT MANUAL
+async function kirim(uid, email, lowongan, lowonganId) {
+  const jawaban = document.getElementById("jawaban").value;
+  const hasil = jawaban == "4" ? "lolos_psikotes" : "gagal_psikotes";
+
+  submitTest({uid, email}, {lowongan, lowonganId}, hasil);
 }
 
-/*
-  ================================
-  10. ANTI PINDAH TAB SEDERHANA
-  ================================
-*/
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden && !sudahSubmit) {
-    alert("Peringatan: jangan keluar dari halaman tes.");
+// SIMPAN HASIL
+async function submitTest(user, data, hasil) {
+  const lamaranId = user.uid + "_" + PERIODE_ID;
+
+  try {
+    // simpan hasil psikotes
+    await db.collection("psikotes").add({
+      uid: user.uid,
+      email: user.email,
+      lowongan: data.lowongan,
+      hasil: hasil,
+      createdAt: new Date()
+    });
+
+    // update lamaran
+    await db.collection("lamaran").doc(lamaranId).update({
+      tahap: hasil,
+      updatedAt: new Date()
+    });
+
+    alert("Tes selesai: " + hasil);
+    location.href = "lamaran.html";
+
+  } catch (e) {
+    alert("Error: " + e.message);
   }
-});
+}
 </script>
 
 </body>
