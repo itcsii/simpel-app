@@ -11,6 +11,7 @@
 
   <style>
     body { font-family: Arial; background:#f2f2f2; padding:20px; }
+    h2 { margin-bottom:10px; }
     .card { background:white; padding:18px; margin-bottom:15px; border-radius:12px; }
     button { background:#2a9d8f; color:white; border:none; padding:10px 14px; border-radius:7px; font-weight:bold; }
     button:disabled { background:#9ca3af; }
@@ -24,26 +25,26 @@
 <p id="userInfo">Memuat user...</p>
 <p><strong>Periode:</strong> UAT Mei 2026</p>
 
-<a href="lamaran.html?v=periode1">
+<a href="lamaran.html?v=periode2">
   <button>Lihat Lamaran Saya</button>
 </a>
 
 <div class="card">
   <h3>Purchasing</h3>
   <p>Mengelola proses pembelian dan administrasi vendor.</p>
-  <button id="btn-purchasing" onclick="applyJob('purchasing', 'Purchasing')">Apply</button>
+  <button class="apply-btn" id="btn-purchasing" onclick="applyJob('purchasing', 'Purchasing')">Apply</button>
 </div>
 
 <div class="card">
   <h3>QC Line Assembling</h3>
   <p>Melakukan pemeriksaan kualitas pada line assembling.</p>
-  <button id="btn-qc-line-assembling" onclick="applyJob('qc-line-assembling', 'QC Line Assembling')">Apply</button>
+  <button class="apply-btn" id="btn-qc-line-assembling" onclick="applyJob('qc-line-assembling', 'QC Line Assembling')">Apply</button>
 </div>
 
 <div class="card">
   <h3>Staff IT</h3>
   <p>Mengelola sistem internal perusahaan.</p>
-  <button id="btn-staff-it" onclick="applyJob('staff-it', 'Staff IT')">Apply</button>
+  <button class="apply-btn" id="btn-staff-it" onclick="applyJob('staff-it', 'Staff IT')">Apply</button>
 </div>
 
 <div id="status">Siap.</div>
@@ -77,7 +78,7 @@ let currentUser = null;
 auth.onAuthStateChanged(async function(user) {
   if (!user) {
     alert("Belum login.");
-    window.location.href = "index.html?v=periode1";
+    window.location.href = "index.html?v=periode2";
     return;
   }
 
@@ -87,23 +88,22 @@ auth.onAuthStateChanged(async function(user) {
   await cekLamaranPeriode();
 });
 
+function disableSemuaTombol(teks = "Sudah melamar") {
+  document.querySelectorAll(".apply-btn").forEach(btn => {
+    btn.innerText = teks;
+    btn.disabled = true;
+  });
+}
+
 async function cekLamaranPeriode() {
   const lamaranId = currentUser.uid + "_" + PERIODE_ID;
   const docSnap = await db.collection("lamaran").doc(lamaranId).get();
 
   if (docSnap.exists) {
     const data = docSnap.data();
-    disableSemuaTombol("Sudah melamar");
+    disableSemuaTombol();
     statusBox.innerText = "Kamu sudah melamar " + data.lowongan + " pada periode ini.";
   }
-}
-
-function disableSemuaTombol(teks) {
-  ["btn-purchasing", "btn-qc-line-assembling", "btn-staff-it"].forEach(id => {
-    const btn = document.getElementById(id);
-    btn.innerText = teks;
-    btn.disabled = true;
-  });
 }
 
 async function applyJob(jobId, jobName) {
@@ -122,8 +122,8 @@ async function applyJob(jobId, jobName) {
 
     if (docSnap.exists) {
       const data = docSnap.data();
+      disableSemuaTombol();
       statusBox.innerText = "Kamu sudah melamar " + data.lowongan + " pada periode ini.";
-      disableSemuaTombol("Sudah melamar");
       return;
     }
 
@@ -139,8 +139,8 @@ async function applyJob(jobId, jobName) {
       createdAt: new Date()
     });
 
+    disableSemuaTombol();
     statusBox.innerText = "✅ Lamaran " + jobName + " berhasil dikirim.";
-    disableSemuaTombol("Sudah melamar");
 
   } catch (err) {
     statusBox.innerText = "Error: " + err.message;
